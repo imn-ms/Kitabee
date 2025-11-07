@@ -1,0 +1,126 @@
+/* ========= DARK THEME ========= */
+
+body.nuit {
+  --bg: #121212;
+  --paper: #1a1a1a;
+  --ink: #f5f5f5;
+  --muted-ink: #c7c7c7;
+
+  --brand: #7aa37a;
+  --brand-ink: #a3c6a3;
+
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+
+  /* ✅ force l’application de fond/texte même si l’ordre CSS change */
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body.nuit .site-header {
+  background: rgba(18,18,18,.9);
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: saturate(150%) blur(10px);
+}
+
+body.nuit .section.muted { 
+  background: #1a1a1a; 
+}
+
+body.nuit .chip {
+  background: var(--paper);
+  border-color: rgba(255,255,255,.14);
+  color: var(--ink);
+}
+
+body.nuit .hero { 
+  background: var(--bg); 
+}
+body.nuit .hero-overlay {
+  background: linear-gradient(
+    90deg, 
+    rgba(18,18,18,.94) 0%, 
+    rgba(18,18,18,.7) 50%, 
+    rgba(18,18,18,.2) 100%
+  );
+}
+body.nuit .hero-title { color: var(--ink); }
+body.nuit .hero-title span { color: var(--brand-ink); }
+body.nuit .hero-subtitle { color: var(--muted-ink); }
+
+/* Boutons */
+body.nuit .btn-primary { 
+  background: var(--brand); 
+  color: #0a0a0a; 
+}
+body.nuit .btn-primary:hover { filter: brightness(.95); }
+
+body.nuit .btn-ghost { 
+  background: var(--paper);
+  border-color: rgba(255,255,255,.12);
+  color: var(--ink);
+}
+body.nuit .btn-ghost:hover { 
+  background: #1f1f1f; 
+}
+
+/* ✅ Champs de formulaire (barre de recherche) */
+body.nuit .search-bar input[type="text"],
+body.nuit .search-bar select {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid rgba(255,255,255,.14);
+}
+body.nuit .search-bar input::placeholder {
+  color: #9aa3ad;
+}
+body.nuit .search-bar button {
+  /* si c'est un .btn, les règles .btn-* prennent le relais ; sinon, on garde ceci neutre */
+  background: var(--brand);
+  color: #0a0a0a;
+  border: 1px solid transparent;
+}
+
+body.nuit .card,
+body.nuit .tile {
+  background: var(--paper);
+  border-color: rgba(255,255,255,.12);
+  box-shadow: none; 
+}
+body.nuit .card h3,
+body.nuit .tile-meta h4 { 
+  color: var(--ink);
+}
+body.nuit .card p,
+body.nuit .tile-meta p {
+  color: var(--muted-ink);
+}
+
+/* Couverture des tuiles */
+body.nuit .tile-cover {
+  background: linear-gradient(135deg, rgba(95,127,95,.25), rgba(255,255,255,0));
+}
+
+/* Footer */
+body.nuit .site-footer {
+  background: #171717;
+  border-top: 1px solid rgba(255,255,255,.12);
+}
+body.nuit .copy { 
+  color: var(--muted-ink); 
+}
+
+body.nuit a { 
+  color: inherit; 
+}
+
+body.nuit .back-to-top {
+  background: var(--brand);
+  color: #111;
+}
+body.nuit .back-to-top:hover {
+  background: var(--brand-ink);
+}
+
+@media (max-width: 600px) {
+  body.nuit .main-nav { display: none; } 
+}
