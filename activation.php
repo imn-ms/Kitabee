@@ -6,7 +6,7 @@ require_once __DIR__ . '/secret/database.php';
 $pageTitle = "Activation du compte – Kitabee";
 $message = '';
 $error = '';
-$asupprimer = "prout";
+
 
 $token = $_GET['token'] ?? '';
 
