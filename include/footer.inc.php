@@ -7,7 +7,7 @@
     <div class="footer-col">
       <div class="footer-brand">
         <img src="images/logo.png" alt="Kitabee" class="logo">
-        <span class="brand-name">BookChooser</span>
+        <span class="brand-name">Kitabee</span>
       </div>
       <?php if (!empty($last_visit)): ?>
         <p class="footer-info">Dernière visite : <?= htmlspecialchars($last_visit, ENT_QUOTES, 'UTF-8') ?></p>
