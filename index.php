@@ -202,33 +202,6 @@ $topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $top
 </section>
 
 
-
-<!-- ===== Diaporama ===== -->
-<section class="section">
-  <div class="container">
-    <h2 class="section-title center">Diaporama</h2>
-    <div class="slideshow-container" id="slideshow1">
-      <div class="mySlide active">
-        <img src="images/slide1.png" alt="Image 1">
-        <div class="caption">Image 1</div>
-      </div>
-      <div class="mySlide">
-        <img src="images/slide2.png" alt="Image 2">
-        <div class="caption">Image 2</div>
-      </div>
-      <div class="mySlide">
-        <img src="images/slide3.png" alt="Image 3">
-        <div class="caption">Image 3</div>
-      </div>
-
-      <button class="nav prev" aria-label="Précédent">❮</button>
-      <button class="nav next" aria-label="Suivant">❯</button>
-
-      <div class="dots" role="group" aria-label="Pagination du diaporama"></div>
-    </div>
-  </div>
-</section>
-
 <!-- ===== Bandeau cookies ===== -->
 <div id="cookieBanner" class="cookie-banner" role="dialog" aria-live="polite" aria-label="Bandeau de consentement aux cookies">
   <div class="inner">

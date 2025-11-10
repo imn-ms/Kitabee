@@ -20,7 +20,7 @@
     <div class="footer-col">
       <h3>Informations</h3>
       <nav class="footer-links">
-        <a href="construction.php?page=mentions">Mentions légales</a>
+        <a href="cookie.php">Cookies</a>
         <a href="construction.php?page=confidentialite">Confidentialité</a>
       </nav>
     </div>
