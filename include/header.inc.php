@@ -12,6 +12,23 @@ $loggedUserId   = $_SESSION['user'] ?? null;
 $loggedLogin    = $_SESSION['login'] ?? null;
 $loggedAvatar   = $_SESSION['avatar'] ?? null;
 
+/* ========= DEMANDES D'AMIS EN ATTENTE ========= */
+$pendingFriendRequests = $pendingFriendRequests ?? 0;
+if ($loggedUserId && isset($pdo) && $pendingFriendRequests === 0) {
+    try {
+        $stmtHeader = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM user_friends
+            WHERE friend_id = :uid
+              AND status = 'pending'
+        ");
+        $stmtHeader->execute([':uid' => (int)$loggedUserId]);
+        $pendingFriendRequests = (int)$stmtHeader->fetchColumn();
+    } catch (Throwable $e) {
+        $pendingFriendRequests = 0;
+    }
+}
+
 /* ========= COOKIES / STYLE ========= */
 $cookieConsent = $_COOKIE['cookie_consent'] ?? null;
 $allowNonEssential = ($cookieConsent === 'accepted');
@@ -51,7 +68,7 @@ if ($allowNonEssential) {
   ]);
 }
 
-/* ========= LANGUES (via LibreTranslate, gratuit) ========= */
+/* ========= LANGUES ========= */
 $AVAILABLE_LANGS = ['fr', 'en', 'es'];
 $DEFAULT_LANG = 'fr';
 
@@ -60,10 +77,6 @@ if (isset($_GET['lang']) && in_array($_GET['lang'], $AVAILABLE_LANGS, true)) {
 }
 $currentLang = $_SESSION['lang'] ?? $DEFAULT_LANG;
 
-/**
- * Appelle l’API LibreTranslate pour traduire un texte (FR -> EN/ES)
- * Documentation : https://docs.libretranslate.com/
- */
 function lt_translate(string $text, string $target): string {
   if ($text === '') return '';
 
@@ -83,7 +96,6 @@ function lt_translate(string $text, string $target): string {
     'format' => 'text'
   ];
 
-  // Essai via cURL 
   if (function_exists('curl_init')) {
     $ch = curl_init($apiUrl);
     curl_setopt_array($ch, [
@@ -105,7 +117,6 @@ function lt_translate(string $text, string $target): string {
     }
   }
 
-  // fallback file_get_contents
   $ctx = stream_context_create([
     'http' => [
       'method' => 'POST',
@@ -126,9 +137,6 @@ function lt_translate(string $text, string $target): string {
   return $text; 
 }
 
-/**
- * Fonction utilitaire à utiliser dans les pages
- */
 function t(string $text): string {
   global $currentLang;
   if ($currentLang === 'fr') {
@@ -174,6 +182,32 @@ function t(string $text): string {
       background: #5f7f5f;
       color: white;
     }
+
+    /* Badge pour notifications  */
+    .notif-badge {
+      display:inline-flex;
+      min-width:18px;
+      height:18px;
+      padding:0 5px;
+      border-radius:999px;
+      background:#dc2626;
+      color:#fff;
+      font-size:0.7rem;
+      font-weight:700;
+      align-items:center;
+      justify-content:center;
+    }
+
+    /* Badge sur l'avatar */
+    .profile-wrapper {
+      position:relative;
+      display:inline-block;
+    }
+    .avatar-notif-badge {
+      position:absolute;
+      top:-4px;
+      right:-4px;
+    }
   </style>
 </head>
 <body class="<?= htmlspecialchars($style, ENT_QUOTES) ?>">
@@ -208,17 +242,22 @@ function t(string $text): string {
       </div>
 
       <?php if ($loggedUserId): ?>
-        <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
-          <?php if (!empty($loggedAvatar)): ?>
-            <img src="/uploads/avatars/<?= htmlspecialchars($loggedAvatar, ENT_QUOTES, 'UTF-8') ?>"
-                 alt="Mon avatar"
-                 class="profile-avatar">
-          <?php else: ?>
-            <span class="profile-circle">
-              <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
-            </span>
+        <div class="profile-wrapper">
+          <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
+            <?php if (!empty($loggedAvatar)): ?>
+              <img src="/uploads/avatars/<?= htmlspecialchars($loggedAvatar, ENT_QUOTES, 'UTF-8') ?>"
+                   alt="Mon avatar"
+                   class="profile-avatar">
+            <?php else: ?>
+              <span class="profile-circle">
+                <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
+              </span>
+            <?php endif; ?>
+          </a>
+          <?php if ($pendingFriendRequests > 0): ?>
+            <span class="notif-badge avatar-notif-badge"><?= $pendingFriendRequests ?></span>
           <?php endif; ?>
-        </a>
+        </div>
       <?php else: ?>
         <a href="/connexion.php" class="chip"><?= t("Connexion") ?></a>
       <?php endif; ?>
