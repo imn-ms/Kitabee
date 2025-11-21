@@ -48,6 +48,14 @@ include __DIR__ . '/include/header.inc.php';
         <a class="btn" href="amis.php">Gérer mes amis</a>
       </article>
 
+      <!-- Clubs -->
+      <article class="dash-card">
+        <div class="dash-icon">👥</div>
+        <h2>Mes Clubs de Lecture</h2>
+        <p>Consulter vos clubs de lectures ou rejoignez en un.</p>
+        <a class="btn" href="club.php">Gérer mes clubs de lecture</a>
+      </article>
+
       <!-- Déconnexion -->
       <article class="dash-card">
         <div class="dash-icon">🚪</div>
