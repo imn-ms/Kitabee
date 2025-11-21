@@ -13,8 +13,8 @@ require_once __DIR__ . '/secret/database.php';
 $userId = $_SESSION['user'];
 $currentLogin = $_SESSION['login'] ?? '';
 
-// Récupérer les infos actuelles de l'utilisateur
-$stmt = $pdo->prepare("SELECT login, email, avatar FROM users WHERE id = :id LIMIT 1");
+// Récupérer les infos actuelles de l'utilisateur 
+$stmt = $pdo->prepare("SELECT login, email, avatar, password FROM users WHERE id = :id LIMIT 1");
 $stmt->execute([':id' => $userId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -25,8 +25,41 @@ if (!$user) {
 $message = null;
 $error = null;
 
-// Traitement du formulaire
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// --- Traitement suppression de compte ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
+    $passwordDelete = $_POST['password_delete'] ?? '';
+
+    if ($passwordDelete === '') {
+        $error = "Veuillez saisir votre mot de passe pour confirmer la suppression.";
+    } elseif (!password_verify($passwordDelete, $user['password'])) {
+        $error = "Mot de passe incorrect. Suppression annulée.";
+    } else {
+        // suppression de l’avatar 
+        if (!empty($user['avatar'])) {
+            $avatarPath = __DIR__ . '/uploads/avatars/' . $user['avatar'];
+            if (is_file($avatarPath)) {
+                @unlink($avatarPath);
+            }
+        }
+
+        // Suppression du compte
+        $stmtDel = $pdo->prepare("DELETE FROM users WHERE id = :id");
+        $okDel = $stmtDel->execute([':id' => $userId]);
+
+        if ($okDel) {
+            // Déconnexion propre
+            session_unset();
+            session_destroy();
+            header('Location: index.php?account_deleted=1');
+            exit;
+        } else {
+            $error = "Impossible de supprimer votre compte pour le moment. Réessayez plus tard.";
+        }
+    }
+}
+
+// --- Traitement mise à jour du profil ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
     // 1. Récupérer les champs
     $newLogin = trim($_POST['login'] ?? '');
     $newEmail = trim($_POST['email'] ?? '');
@@ -56,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 4. Gestion de l'avatar (si envoyé)
+    // 4. Gestion de l'avatar
     $avatarFilename = $user['avatar']; // on garde l'ancien par défaut
 
     if (!$error && isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -107,7 +140,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $error = "Le dossier d’upload existe mais n’est pas accessible en écriture : " . $uploadDir;
                         } else {
                             if (!move_uploaded_file($file['tmp_name'], $destPath)) {
-                                // message plus clair
                                 $error = "Erreur lors du téléversement de l'avatar. Chemin tenté : " . $destPath;
                             } else {
                                 $avatarFilename = $newName;
@@ -160,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$error) {
-            if ($ok) {
+            if (!empty($ok)) {
                 // mettre à jour la session login si changé
                 $_SESSION['login'] = $newLogin;
                 $_SESSION['avatar'] = $avatarFilename;
@@ -200,7 +232,7 @@ include __DIR__ . '/include/header.inc.php';
 
     <form method="post" enctype="multipart/form-data" style="display:grid; gap:14px; background:#fff; padding:20px; border-radius:14px; border:1px solid #e5e7eb;">
       
-      <!-- Avatar actuel -->
+      <!-- Avatar -->
       <div style="display:flex; align-items:center; gap:14px;">
         <?php if (!empty($user['avatar'])): ?>
           <img src="uploads/avatars/<?= htmlspecialchars($user['avatar'], ENT_QUOTES, 'UTF-8') ?>" alt="Avatar" style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
@@ -245,6 +277,26 @@ include __DIR__ . '/include/header.inc.php';
         <a class="btn btn-ghost" href="dashboard_user.php">⬅ Retour au tableau de bord</a>
       </div>
     </form>
+
+    <!--suppression du compte -->
+    <div style="margin-top:30px; padding:16px; border-radius:14px; border:1px solid #fecaca; background:#fef2f2;">
+      <h2 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h2>
+      <p style="font-size:.9rem; color:#7f1d1d;">
+        Cette action est <strong>définitive</strong> : toutes vos données liées à ce compte pourront être supprimées.
+      </p>
+
+      <form method="post" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement votre compte ? Cette action est irréversible.');" style="display:grid; gap:10px; max-width:420px;">
+        <label for="password_delete">Pour confirmer, entrez votre mot de passe :</label>
+        <input type="password" name="password_delete" id="password_delete" autocomplete="current-password" required>
+
+        <button type="submit" name="delete_account" value="1"
+                class="btn"
+                style="background:#dc2626; color:#fff; border-color:#b91c1c;">
+          Supprimer définitivement mon compte
+        </button>
+      </form>
+    </div>
+
   </div>
 </section>
 

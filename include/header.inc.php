@@ -83,7 +83,7 @@ function lt_translate(string $text, string $target): string {
     'format' => 'text'
   ];
 
-  // Essai via cURL (plus fiable sur hébergeurs)
+  // Essai via cURL 
   if (function_exists('curl_init')) {
     $ch = curl_init($apiUrl);
     curl_setopt_array($ch, [
@@ -123,12 +123,11 @@ function lt_translate(string $text, string $target): string {
     }
   }
 
-  return $text; // fallback : texte original
+  return $text; 
 }
 
 /**
  * Fonction utilitaire à utiliser dans les pages
- * Exemple : <?= t("Bienvenue sur Kitabee") ?>
  */
 function t(string $text): string {
   global $currentLang;
@@ -232,5 +231,5 @@ function t(string $text): string {
     </div>
   </div>
 </header>
-
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <main class="site-content">

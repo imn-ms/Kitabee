@@ -12,25 +12,7 @@
     document.head.appendChild(s);
   }
 
-  /* ========= Styles spécifiques (déplacés depuis les pages) ========= */
-  injectStyle(`
-    /* TD7 tables */
-    #td7-table td, #td7-table th { padding:8px; border:1px solid #e6e6e6; text-align:left; }
-    #td7-table th { background:#f3f4f6; font-weight:600; }
-    #td7-html-fragment table { width:100%; border-collapse:collapse; }
-    #td7-html-fragment td, #td7-html-fragment th { padding:8px; border:1px solid #e6e6e6; text-align:left; }
-    #td7-html-fragment th { background:#f3f4f6; font-weight:600; }
 
-    /* TD6 tables */
-    #ajax-table td, #ajax-table th,
-    #departement-table td, #departement-table th {
-      padding:8px; border:1px solid #e6e6e6; text-align:left;
-    }
-    #ajax-table th, #departement-table th {
-      background:#f3f4f6; font-weight:600;
-    }
-    .exo3-table td, .exo3-table th { padding:8px; border:1px solid #e6e6e6; }
-  `);
 
   /* ========= Index : horloge ========= */
   function initClock() {
@@ -118,23 +100,25 @@
     });
   }
 
-  /* ========= Placeholders pour tes autres inits ========= */
-  function initTD7() {}
-  function initTD6() {}
-  function initTD5() {}
-  function initTD() {}
-
   /* ========= Boot ========= */
   document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initSlideshow();
     initCookieBanner();
     initMobileMenu();
-
-    // Pages spécifiques (tu avais ça au départ)
-    initTD7();
-    initTD6();
-    initTD5();
-    initTD(); // testTD.php
   });
+
+  function sendFriendAction(action, userId, callback) {
+  const form = new FormData();
+  form.append('action', action);
+  form.append('user_id', userId);
+
+  fetch('friends_ajax.php', {
+    method: 'POST',
+    body: form
+  })
+    .then(r => r.json())
+    .then(data => callback(data));
+}
+
 })();

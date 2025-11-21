@@ -124,3 +124,52 @@ body.nuit .back-to-top:hover {
 @media (max-width: 600px) {
   body.nuit .main-nav { display: none; } 
 }
+
+/* Mode nuit */
+body.nuit .dash-card {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-color: #374151;
+}
+body.nuit .dash-card h2 {
+  color: #93c5fd;
+}
+body.nuit .dash-card p {
+  color: #d1d5db;
+}
+body.nuit .club-card {
+  background:#1f2937;
+  border-color:#374151;
+  color:#e5e7eb;
+}
+body.nuit .club-icon {
+  background:#3b82f6;
+}
+body.nuit .club-name {
+  color:#f9fafb;
+}
+body.nuit .club-description {
+  color:#d1d5db;
+}
+body.nuit .club-meta {
+  color:#9ca3af;
+}
+body.nuit .club-column {
+  background:#111827;
+  border-color:#374151;
+}
+body.nuit .club-subtitle {
+  color:#e5e7eb;
+}
+body.nuit .member-item,
+body.nuit .book-item,
+body.nuit .lib-item {
+  background:#1f2937;
+}
+body.nuit .messages-box {
+  background:#111827;
+}
+body.nuit .message-item {
+  background:#0f172a;
+  border-color:#374151;
+}

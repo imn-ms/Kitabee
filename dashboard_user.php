@@ -40,6 +40,14 @@ include __DIR__ . '/include/header.inc.php';
         <a class="btn" href="bibliotheque.php">Ouvrir ma bibliothèque</a>
       </article>
 
+      <!-- Amis -->
+      <article class="dash-card">
+        <div class="dash-icon">🤝</div>
+        <h2>Mes amis</h2>
+        <p>Rechercher des utilisateurs, envoyer ou accepter des demandes d’amis.</p>
+        <a class="btn" href="amis.php">Gérer mes amis</a>
+      </article>
+
       <!-- Déconnexion -->
       <article class="dash-card">
         <div class="dash-icon">🚪</div>
@@ -53,68 +61,3 @@ include __DIR__ . '/include/header.inc.php';
 </section>
 
 <?php include __DIR__ . '/include/footer.inc.php'; ?>
-
-<style>
-/* ==== Dashboard User ==== */
-.dashboard .section-title {
-  font-size: 1.8rem;
-  margin-bottom: 10px;
-  color: #5f7f5f;
-}
-.dashboard .subtitle {
-  color: #555;
-  margin-bottom: 24px;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
-
-.dash-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 20px 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-}
-.dash-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-}
-.dash-icon {
-  font-size: 2rem;
-  margin-bottom: 10px;
-}
-.dash-card h2 {
-  margin: 4px 0;
-  font-size: 1.1rem;
-  color: #1e3a8a;
-}
-.dash-card p {
-  font-size: .9rem;
-  color: #555;
-  margin-bottom: 14px;
-}
-.dash-card .btn {
-  align-self: flex-start;
-}
-
-/* Pour thème sombre éventuel */
-body.nuit .dash-card {
-  background: #1f2937;
-  color: #f3f4f6;
-  border-color: #374151;
-}
-body.nuit .dash-card h2 {
-  color: #93c5fd;
-}
-body.nuit .dash-card p {
-  color: #d1d5db;
-}
-</style>

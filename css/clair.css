@@ -873,3 +873,243 @@ body {
     border-radius: 16px;
   }
 }
+
+/* ==== Dashboard User ==== */
+.dashboard .section-title {
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+  color: #5f7f5f;
+}
+.dashboard .subtitle {
+  color: #555;
+  margin-bottom: 24px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.dash-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.dash-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+.dash-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+.dash-card h2 {
+  margin: 4px 0;
+  font-size: 1.1rem;
+  color: #1e3a8a;
+}
+.dash-card p {
+  font-size: .9rem;
+  color: #555;
+  margin-bottom: 14px;
+}
+.dash-card .btn {
+  align-self: flex-start;
+}
+.club-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+  gap:16px;
+  margin-top:10px;
+}
+
+.club-card {
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:14px 16px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.04);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.club-card:hover {
+  transform:translateY(-2px);
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+.club-main {
+  display:flex;
+  gap:10px;
+}
+.club-icon {
+  width:42px;
+  height:42px;
+  border-radius:999px;
+  background:#5f7f5f;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.3rem;
+}
+.club-name {
+  margin:0 0 4px;
+  font-size:1rem;
+  color:#111827;
+}
+.club-description {
+  margin:0 0 4px;
+  font-size:.9rem;
+  color:#374151;
+}
+.club-description-muted {
+  font-style:italic;
+  color:#9ca3af;
+}
+.club-meta {
+  margin:0;
+  font-size:.8rem;
+  color:#6b7280;
+}
+.club-actions {
+  display:flex;
+  align-items:center;
+}
+.club-layout {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  gap:18px;
+}
+.club-column {
+  background:#fff;
+  border-radius:14px;
+  border:1px solid #e5e7eb;
+  padding:14px 16px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.04);
+}
+.club-subtitle {
+  margin-top:0;
+  margin-bottom:8px;
+  font-size:1.05rem;
+  color:#111827;
+}
+.member-list, .book-list, .lib-list {
+  list-style:none;
+  padding:0;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.member-item, .book-item, .lib-item {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:6px 8px;
+  border-radius:10px;
+  background:#f9fafb;
+}
+.member-main {
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.member-avatar, .message-avatar {
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  object-fit:cover;
+}
+.member-avatar-fallback, .message-avatar-fallback {
+  background:#5f7f5f;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:600;
+}
+.member-name {
+  font-size:.95rem;
+  font-weight:600;
+}
+.member-meta {
+  font-size:.8rem;
+  color:#6b7280;
+}
+.book-title {
+  font-size:.9rem;
+}
+.book-link {
+  font-size:.8rem;
+  color:#2563eb;
+}
+.lib-item code {
+  font-size:.85rem;
+}
+.badge {
+  display:inline-block;
+  padding:1px 6px;
+  border-radius:999px;
+  font-size:.7rem;
+  margin-left:4px;
+}
+.badge-owner {
+  background:#fee2e2;
+  color:#b91c1c;
+}
+.badge-me {
+  background:#dbeafe;
+  color:#1d4ed8;
+}
+.messages-box {
+  max-height:320px;
+  overflow-y:auto;
+  border-radius:10px;
+  background:#f9fafb;
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.message-item {
+  background:#fff;
+  border-radius:8px;
+  padding:6px 8px;
+  border:1px solid #e5e7eb;
+}
+.message-me {
+  border-color:#bfdbfe;
+  background:#eff6ff;
+}
+.message-header {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:4px;
+}
+.message-meta {
+  display:flex;
+  flex-direction:column;
+}
+.message-author {
+  font-size:.9rem;
+  font-weight:600;
+}
+.message-date {
+  font-size:.75rem;
+  color:#9ca3af;
+}
+.message-content {
+  font-size:.9rem;
+  color:#111827;
+}
