@@ -4,16 +4,16 @@
  */
 
 if (session_status() === PHP_SESSION_NONE) {
-  session_start();
+    session_start();
 }
 
 /* ========= UTILISATEUR ========= */
-$loggedUserId   = $_SESSION['user'] ?? null;
+$loggedUserId   = $_SESSION['user']  ?? null;
 $loggedLogin    = $_SESSION['login'] ?? null;
 $loggedAvatar   = $_SESSION['avatar'] ?? null;
 
 /* ========= DEMANDES D'AMIS EN ATTENTE ========= */
-$pendingFriendRequests = $pendingFriendRequests ?? 0;
+$pendingFriendRequests = isset($pendingFriendRequests) ? (int)$pendingFriendRequests : 0;
 if ($loggedUserId && isset($pdo) && $pendingFriendRequests === 0) {
     try {
         $stmtHeader = $pdo->prepare("
@@ -29,120 +29,138 @@ if ($loggedUserId && isset($pdo) && $pendingFriendRequests === 0) {
     }
 }
 
+/* ========= NOTIFICATIONS CLUBS ========= */
+$pendingClubInvites = 0;
+if ($loggedUserId && isset($pdo)) {
+    try {
+        $stmtClub = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE user_id = :uid
+              AND type = 'club_invite'
+              AND is_read = 0
+        ");
+        $stmtClub->execute([':uid' => (int)$loggedUserId]);
+        $pendingClubInvites = (int)$stmtClub->fetchColumn();
+    } catch (Throwable $e) {
+        $pendingClubInvites = 0;
+    }
+}
+
 /* ========= COOKIES / STYLE ========= */
-$cookieConsent = $_COOKIE['cookie_consent'] ?? null;
+$cookieConsent    = $_COOKIE['cookie_consent'] ?? null;
 $allowNonEssential = ($cookieConsent === 'accepted');
 $isPostToggleStyle = isset($_POST['toggle_style']);
 
 $style = $_COOKIE['style'] ?? 'jour';
 
 if ($isPostToggleStyle) {
-  $new = ($style === 'jour') ? 'nuit' : 'jour';
-  $style = $new;
+    $new   = ($style === 'jour') ? 'nuit' : 'jour';
+    $style = $new;
 
-  if ($allowNonEssential) {
-    setcookie('style', $new, [
-      'expires'  => time() + 5 * 24 * 60 * 60,
-      'path'     => '/',
-      'secure'   => false,
-      'httponly' => false,
-      'samesite' => 'Lax',
-    ]);
+    if ($allowNonEssential) {
+        setcookie('style', $new, [
+            'expires'  => time() + 5 * 24 * 60 * 60,
+            'path'     => '/',
+            'secure'   => false,
+            'httponly' => false,
+            'samesite' => 'Lax',
+        ]);
 
-    $redirect = $_SERVER['REQUEST_URI'] ?? $_SERVER['PHP_SELF'];
-    header('Location: ' . $redirect);
-    exit;
-  }
+        $redirect = $_SERVER['REQUEST_URI'] ?? $_SERVER['PHP_SELF'];
+        header('Location: ' . $redirect);
+        exit;
+    }
 }
 
 /* ========= DERNIÈRE VISITE ========= */
 $last_visit = $_COOKIE['last_visit'] ?? null;
 if ($allowNonEssential) {
-  $last_visit = date('d/m/Y H:i:s');
-  setcookie('last_visit', $last_visit, [
-    'expires'  => time() + 365 * 24 * 60 * 60,
-    'path'     => '/',
-    'secure'   => false,
-    'httponly' => false,
-    'samesite' => 'Lax',
-  ]);
+    $last_visit = date('d/m/Y H:i:s');
+    setcookie('last_visit', $last_visit, [
+        'expires'  => time() + 365 * 24 * 60 * 60,
+        'path'     => '/',
+        'secure'   => false,
+        'httponly' => false,
+        'samesite' => 'Lax',
+    ]);
 }
 
 /* ========= LANGUES ========= */
 $AVAILABLE_LANGS = ['fr', 'en', 'es'];
-$DEFAULT_LANG = 'fr';
+$DEFAULT_LANG    = 'fr';
 
 if (isset($_GET['lang']) && in_array($_GET['lang'], $AVAILABLE_LANGS, true)) {
-  $_SESSION['lang'] = $_GET['lang'];
+    $_SESSION['lang'] = $_GET['lang'];
 }
 $currentLang = $_SESSION['lang'] ?? $DEFAULT_LANG;
 
 function lt_translate(string $text, string $target): string {
-  if ($text === '') return '';
+    if ($text === '') return '';
 
-  if (!isset($_SESSION['trans_cache'])) {
-    $_SESSION['trans_cache'] = [];
-  }
-  $cacheKey = md5($target . '|' . $text);
-  if (isset($_SESSION['trans_cache'][$cacheKey])) {
-    return $_SESSION['trans_cache'][$cacheKey];
-  }
+    if (!isset($_SESSION['trans_cache'])) {
+        $_SESSION['trans_cache'] = [];
+    }
+    $cacheKey = md5($target . '|' . $text);
+    if (isset($_SESSION['trans_cache'][$cacheKey])) {
+        return $_SESSION['trans_cache'][$cacheKey];
+    }
 
-  $apiUrl = 'https://libretranslate.de/translate';
-  $payload = [
-    'q' => $text,
-    'source' => 'fr',
-    'target' => $target,
-    'format' => 'text'
-  ];
+    $apiUrl  = 'https://libretranslate.de/translate';
+    $payload = [
+        'q'      => $text,
+        'source' => 'fr',
+        'target' => $target,
+        'format' => 'text'
+    ];
 
-  if (function_exists('curl_init')) {
-    $ch = curl_init($apiUrl);
-    curl_setopt_array($ch, [
-      CURLOPT_RETURNTRANSFER => true,
-      CURLOPT_POST => true,
-      CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-      CURLOPT_POSTFIELDS => json_encode($payload),
-      CURLOPT_TIMEOUT => 4,
+    if (function_exists('curl_init')) {
+        $ch = curl_init($apiUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_TIMEOUT        => 4,
+        ]);
+        $result = curl_exec($ch);
+        $err    = curl_error($ch);
+        curl_close($ch);
+        if ($result && !$err) {
+            $json = json_decode($result, true);
+            if (isset($json['translatedText'])) {
+                $_SESSION['trans_cache'][$cacheKey] = $json['translatedText'];
+                return $json['translatedText'];
+            }
+        }
+    }
+
+    $ctx = stream_context_create([
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Content-Type: application/json\r\n",
+            'content' => json_encode($payload),
+            'timeout' => 4,
+        ]
     ]);
-    $result = curl_exec($ch);
-    $err = curl_error($ch);
-    curl_close($ch);
-    if ($result && !$err) {
-      $json = json_decode($result, true);
-      if (isset($json['translatedText'])) {
-        $_SESSION['trans_cache'][$cacheKey] = $json['translatedText'];
-        return $json['translatedText'];
-      }
+    $result = @file_get_contents($apiUrl, false, $ctx);
+    if ($result) {
+        $json = json_decode($result, true);
+        if (isset($json['translatedText'])) {
+            $_SESSION['trans_cache'][$cacheKey] = $json['translatedText'];
+            return $json['translatedText'];
+        }
     }
-  }
 
-  $ctx = stream_context_create([
-    'http' => [
-      'method' => 'POST',
-      'header' => "Content-Type: application/json\r\n",
-      'content' => json_encode($payload),
-      'timeout' => 4,
-    ]
-  ]);
-  $result = @file_get_contents($apiUrl, false, $ctx);
-  if ($result) {
-    $json = json_decode($result, true);
-    if (isset($json['translatedText'])) {
-      $_SESSION['trans_cache'][$cacheKey] = $json['translatedText'];
-      return $json['translatedText'];
-    }
-  }
-
-  return $text; 
+    return $text;
 }
 
 function t(string $text): string {
-  global $currentLang;
-  if ($currentLang === 'fr') {
-    return $text;
-  }
-  return lt_translate($text, $currentLang);
+    global $currentLang;
+    if ($currentLang === 'fr') {
+        return $text;
+    }
+    return lt_translate($text, $currentLang);
 }
 ?>
 <!DOCTYPE html>
@@ -254,8 +272,10 @@ function t(string $text): string {
               </span>
             <?php endif; ?>
           </a>
-          <?php if ($pendingFriendRequests > 0): ?>
-            <span class="notif-badge avatar-notif-badge"><?= $pendingFriendRequests ?></span>
+          <?php
+          $totalNotifs = $pendingFriendRequests + $pendingClubInvites;
+          if ($totalNotifs > 0): ?>
+              <span class="notif-badge avatar-notif-badge"><?= $totalNotifs ?></span>
           <?php endif; ?>
         </div>
       <?php else: ?>

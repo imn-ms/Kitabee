@@ -4,26 +4,48 @@ header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
 if (empty($_SESSION['user'])) {
-  header('Location: connexion.php?redirect=dashboard_user.php');
-  exit;
+    header('Location: connexion.php?redirect=dashboard_user.php');
+    exit;
 }
 
 require_once __DIR__ . '/secret/database.php';
 
-$login = $_SESSION['login'] ?? 'Utilisateur';
+$login     = $_SESSION['login'] ?? 'Utilisateur';
 $pageTitle = "Mon espace – Kitabee";
 
 /** Nombre de demandes d'amis en attente pour l'utilisateur connecté */
 $pendingFriendRequests = 0;
 if (!empty($_SESSION['user'])) {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*)
-        FROM user_friends
-        WHERE friend_id = :uid
-          AND status = 'pending'
-    ");
-    $stmt->execute([':uid' => (int)$_SESSION['user']]);
-    $pendingFriendRequests = (int)$stmt->fetchColumn();
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM user_friends
+            WHERE friend_id = :uid
+              AND status = 'pending'
+        ");
+        $stmt->execute([':uid' => (int)$_SESSION['user']]);
+        $pendingFriendRequests = (int)$stmt->fetchColumn();
+    } catch (Throwable $e) {
+        $pendingFriendRequests = 0;
+    }
+}
+
+/** Nombre d'invitations de clubs de lecture */
+$pendingClubInvites = 0;
+if (!empty($_SESSION['user'])) {
+    try {
+        $stmtClub = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE user_id = :uid
+              AND type = 'club_invite'
+              AND is_read = 0
+        ");
+        $stmtClub->execute([':uid' => (int)$_SESSION['user']]);
+        $pendingClubInvites = (int)$stmtClub->fetchColumn();
+    } catch (Throwable $e) {
+        $pendingClubInvites = 0;
+    }
 }
 
 include __DIR__ . '/include/header.inc.php';
@@ -65,11 +87,14 @@ include __DIR__ . '/include/header.inc.php';
       </article>
 
       <!-- Clubs -->
-      <article class="dash-card">
+      <article class="dash-card dash-card-clubs">
+        <?php if ($pendingClubInvites > 0): ?>
+          <span class="card-notif-badge"><?= $pendingClubInvites ?></span>
+        <?php endif; ?>
         <div class="dash-icon">👥</div>
         <h2>Mes Clubs de Lecture</h2>
         <p>Consulter vos clubs de lectures ou rejoignez-en un.</p>
-        <a class="btn" href="clubs.php">Gérer mes clubs de lecture</a>
+        <a class="btn" href="club.php">Gérer mes clubs</a>
       </article>
 
       <!-- Déconnexion -->
@@ -114,13 +139,11 @@ include __DIR__ . '/include/header.inc.php';
   flex-direction: column;
   justify-content: space-between;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
+  position: relative; /* pour les badges */
 }
 .dash-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-}
-.dash-card-friends {
-  position: relative;
 }
 
 .dash-icon {
@@ -141,7 +164,7 @@ include __DIR__ . '/include/header.inc.php';
   align-self: flex-start;
 }
 
-/* Badge rond pour la card Amis */
+/* Badge rond pour les cards (amis + clubs) */
 .card-notif-badge {
   position:absolute;
   top:10px;

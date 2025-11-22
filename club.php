@@ -1,10 +1,10 @@
 <?php
-// club.php — Détails d'un club de lecture (membres, livres, messages)
+// club.php — Clubs de lecture : liste + détail
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
 if (empty($_SESSION['user'])) {
-    header('Location: connexion.php?redirect=clubs.php');
+    header('Location: connexion.php?redirect=club.php');
     exit;
 }
 
@@ -15,31 +15,546 @@ require_once __DIR__ . '/classes/FriendManager.php';
 $userId = (int)$_SESSION['user'];
 $login  = $_SESSION['login'] ?? 'Utilisateur';
 
-$clubId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if ($clubId <= 0) {
-    header('Location: clubs.php');
-    exit;
-}
-
 $cm = new ClubManager($pdo, $userId);
 $fm = new FriendManager($pdo, $userId);
 
-$club = $cm->getClub($clubId);
-if (!$club) {
-    // L'utilisateur n'est pas membre de ce club ou club inexistant
-    $pageTitle = "Club introuvable – Kitabee";
+$clubId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+
+//CAS 1 : PAS D'ID → LISTE DES CLUBS + INVITATIONS
+
+if ($clubId <= 0) {
+    $pageTitle = "Mes clubs de lecture – Kitabee";
+    $message = null;
+    $error   = null;
+
+    // Message si on revient après avoir quitté / supprimé un club
+    if (isset($_GET['left']) && $_GET['left'] === '1') {
+        $message = "Vous avez quitté le club.";
+    }
+    if (isset($_GET['deleted']) && $_GET['deleted'] === '1') {
+        $message = "Le club a été supprimé avec succès.";
+    }
+
+    /* ----- 1) Traitement des invitations (Accepter / Refuser) ----- */
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['notif_action'], $_POST['notif_id'])) {
+        $notifAction = $_POST['notif_action'];
+        $notifId     = (int)($_POST['notif_id'] ?? 0);
+        $notifClubId = (int)($_POST['club_id'] ?? 0);
+
+        try {
+            // On commence par vérifier que la notif appartient bien à l'utilisateur
+            $stmtCheck = $pdo->prepare("
+                SELECT id, club_id
+                FROM notifications
+                WHERE id = :nid
+                  AND user_id = :uid
+                  AND type = 'club_invite'
+                  AND is_read = 0
+                LIMIT 1
+            ");
+            $stmtCheck->execute([
+                ':nid' => $notifId,
+                ':uid' => $userId,
+            ]);
+            $notifRow = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if (!$notifRow) {
+                $error = "Cette invitation n'existe pas ou a déjà été traitée.";
+            } else {
+                $clubFromNotif = (int)$notifRow['club_id'];
+
+                if ($notifAction === 'accept') {
+                    // On ajoute l'utilisateur comme membre du club
+                    $stmtAdd = $pdo->prepare("
+                        INSERT IGNORE INTO book_club_members (club_id, user_id, role)
+                        VALUES (:cid, :uid, 'member')
+                    ");
+                    $stmtAdd->execute([
+                        ':cid' => $clubFromNotif,
+                        ':uid' => $userId,
+                    ]);
+
+                    // On marque la notif comme lue
+                    $stmtRead = $pdo->prepare("
+                        UPDATE notifications
+                        SET is_read = 1
+                        WHERE id = :nid
+                    ");
+                    $stmtRead->execute([':nid' => $notifId]);
+
+                    $message = "Vous avez rejoint le club avec succès 🎉";
+
+                } elseif ($notifAction === 'decline') {
+                    // On marque simplement la notif comme lue
+                    $stmtRead = $pdo->prepare("
+                        UPDATE notifications
+                        SET is_read = 1
+                        WHERE id = :nid
+                    ");
+                    $stmtRead->execute([':nid' => $notifId]);
+
+                    $message = "Invitation refusée.";
+                } else {
+                    $error = "Action inconnue sur l'invitation.";
+                }
+            }
+        } catch (Throwable $e) {
+            $error = "Une erreur est survenue lors du traitement de l'invitation.";
+        }
+    }
+
+    /* ----- 2) Création d'un club ----- */
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['notif_action'])) {
+        $name  = trim($_POST['name'] ?? '');
+        $descr = trim($_POST['description'] ?? '');
+
+        if ($name === '') {
+            $error = "Le nom du club est obligatoire.";
+        } else {
+            $newClubId = $cm->createClub($name, $descr);
+            if ($newClubId) {
+                $message = "Le club « " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . " » a été créé avec succès 🎉";
+            } else {
+                $error = "Impossible de créer le club. Veuillez réessayer.";
+            }
+        }
+    }
+
+    /* ----- 3) Récupérer les invitations à des clubs (non lues) ----- */
+    $clubInvites = [];
+    try {
+        $stmtInv = $pdo->prepare("
+            SELECT 
+                n.id,
+                n.content,
+                n.created_at,
+                n.club_id,
+                u.login AS from_login,
+                c.name  AS club_name
+            FROM notifications n
+            JOIN users      u ON u.id = n.from_user_id
+            JOIN book_clubs c ON c.id = n.club_id
+            WHERE n.user_id = :uid
+              AND n.type    = 'club_invite'
+              AND n.is_read = 0
+            ORDER BY n.created_at DESC
+        ");
+        $stmtInv->execute([':uid' => $userId]);
+        $clubInvites = $stmtInv->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $clubInvites = [];
+    }
+
+    /* ----- 4) Récupérer la liste des clubs dont je suis membre ----- */
+    $clubs = $cm->getMyClubs();
+
     include __DIR__ . '/include/header.inc.php';
     ?>
     <section class="section">
-      <div class="container" style="max-width:800px;">
-        <h1 class="section-title">Club introuvable</h1>
-        <p>Ce club n'existe pas ou vous n'en faites pas partie.</p>
-        <a class="btn btn-ghost" href="clubs.php">⬅ Retour à mes clubs</a>
+      <div class="container" style="max-width:960px;">
+
+        <h1 class="section-title">Mes clubs de lecture</h1>
+        <p>Créez des clubs avec vos amis et partagez vos lectures.</p>
+
+        <?php if (!empty($error)): ?>
+          <div class="card" style="padding:10px; border-left:4px solid #dc2626; margin:10px 0;">
+            <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+          </div>
+        <?php endif; ?>
+
+        <?php if (!empty($message)): ?>
+          <div class="card" style="padding:10px; border-left:4px solid #16a34a; margin:10px 0;">
+            <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+          </div>
+        <?php endif; ?>
+
+        <!-- Invitations reçues à des clubs -->
+        <?php if (!empty($clubInvites)): ?>
+          <section class="card" style="padding:16px 18px; margin-bottom:20px; border-radius:14px; border:1px solid #e5e7eb;">
+            <h2 style="margin-top:0; font-size:1.05rem;">🛎 Invitations à des clubs de lecture</h2>
+            <p style="font-size:.9rem; color:#555; margin-bottom:10px;">
+              Vos amis vous ont invité à rejoindre des clubs. Choisissez d’accepter ou de refuser.
+            </p>
+
+            <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;">
+              <?php foreach ($clubInvites as $inv): ?>
+                <li style="border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; gap:10px; align-items:center;">
+                  <div>
+                    <div style="font-size:.9rem; margin-bottom:4px;">
+                      <strong><?= htmlspecialchars($inv['from_login'], ENT_QUOTES, 'UTF-8') ?></strong>
+                      vous a invité à rejoindre le club
+                      <strong><?= htmlspecialchars($inv['club_name'], ENT_QUOTES, 'UTF-8') ?></strong>.
+                    </div>
+                    <div style="font-size:.75rem; color:#6b7280;">
+                      Reçu le <?= htmlspecialchars(date('d/m/Y H:i', strtotime($inv['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                  </div>
+                  <div style="display:flex; gap:6px;">
+                    <form method="post" style="margin:0;">
+                      <input type="hidden" name="notif_id" value="<?= (int)$inv['id'] ?>">
+                      <input type="hidden" name="club_id"  value="<?= (int)$inv['club_id'] ?>">
+                      <button type="submit" name="notif_action" value="accept" class="btn btn-primary">Accepter</button>
+                    </form>
+                    <form method="post" style="margin:0;">
+                      <input type="hidden" name="notif_id" value="<?= (int)$inv['id'] ?>">
+                      <input type="hidden" name="club_id"  value="<?= (int)$inv['club_id'] ?>">
+                      <button type="submit" name="notif_action" value="decline" class="btn btn-ghost">Refuser</button>
+                    </form>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          </section>
+        <?php endif; ?>
+
+        <!-- Création d'un club -->
+        <section aria-labelledby="create-club-title" class="card" style="padding:18px 20px; margin-bottom:24px; border-radius:14px; border:1px solid #e5e7eb;">
+          <h2 id="create-club-title" style="margin-top:0; font-size:1.1rem;">Créer un nouveau club</h2>
+          <p style="font-size:.9rem; color:#555; margin-bottom:14px;">
+            Donnez un nom à votre club et ajoutez une petite description. Vous pourrez ensuite inviter vos amis.
+          </p>
+
+          <form method="post" style="display:grid; gap:12px; max-width:520px;">
+            <div>
+              <label for="name">Nom du club</label>
+              <input type="text" id="name" name="name" required placeholder="Ex : Club des romans historiques">
+            </div>
+
+            <div>
+              <label for="description">Description (optionnel)</label>
+              <textarea id="description" name="description" rows="3" placeholder="Ex : On lit un roman par mois et on en discute ensemble."></textarea>
+            </div>
+
+            <div>
+              <button type="submit" class="btn btn-primary">Créer le club</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Liste de mes clubs -->
+        <section aria-labelledby="my-clubs-title">
+          <h2 id="my-clubs-title" style="font-size:1.1rem; margin-bottom:10px;">Clubs dont je fais partie</h2>
+
+          <?php if (!$clubs): ?>
+            <p>Vous ne faites encore partie d’aucun club. Créez-en un ci-dessus pour commencer 📚.</p>
+          <?php else: ?>
+            <div class="club-grid">
+              <?php foreach ($clubs as $club): ?>
+                <article class="club-card">
+                  <div class="club-main">
+                    <div class="club-icon">📖</div>
+                    <div>
+                      <h3 class="club-name">
+                        <?= htmlspecialchars($club['name'], ENT_QUOTES, 'UTF-8') ?>
+                      </h3>
+                      <?php if (!empty($club['description'])): ?>
+                        <p class="club-description">
+                          <?= nl2br(htmlspecialchars($club['description'], ENT_QUOTES, 'UTF-8')) ?>
+                        </p>
+                      <?php else: ?>
+                        <p class="club-description club-description-muted">
+                          Pas de description pour ce club.
+                        </p>
+                      <?php endif; ?>
+                      <p class="club-meta">
+                        Rôle : 
+                        <?php if ($club['role'] === 'owner'): ?>
+                          <strong>Créateur du club</strong>
+                        <?php else: ?>
+                          Membre
+                        <?php endif; ?>
+                        • Créé le <?= htmlspecialchars(date('d/m/Y', strtotime($club['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="club-actions">
+                    <a class="btn" href="club.php?id=<?= (int)$club['id'] ?>">Voir le club</a>
+                  </div>
+                </article>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </section>
+
       </div>
     </section>
+
+    <?php include __DIR__ . '/include/footer.inc.php'; ?>
+
+    <style>
+      .club-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+        gap:16px;
+        margin-top:10px;
+      }
+      .club-card {
+        background:#fff;
+        border:1px solid #e5e7eb;
+        border-radius:14px;
+        padding:14px 16px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:10px;
+        box-shadow:0 4px 10px rgba(0,0,0,0.04);
+        transition:transform .15s ease, box-shadow .15s ease;
+      }
+      .club-card:hover {
+        transform:translateY(-2px);
+        box-shadow:0 6px 18px rgba(0,0,0,0.08);
+      }
+      .club-main {
+        display:flex;
+        gap:10px;
+      }
+      .club-icon {
+        width:42px;
+        height:42px;
+        border-radius:999px;
+        background:#5f7f5f;
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:1.3rem;
+      }
+      .club-name {
+        margin:0 0 4px;
+        font-size:1rem;
+        color:#111827;
+      }
+      .club-description {
+        margin:0 0 4px;
+        font-size:.9rem;
+        color:#374151;
+      }
+      .club-description-muted {
+        font-style:italic;
+        color:#9ca3af;
+      }
+      .club-meta {
+        margin:0;
+        font-size:.8rem;
+        color:#6b7280;
+      }
+      .club-actions {
+        display:flex;
+        align-items:center;
+      }
+      body.nuit .club-card {
+        background:#1f2937;
+        border-color:#374151;
+        color:#e5e7eb;
+      }
+      body.nuit .club-icon {
+        background:#3b82f6;
+      }
+      body.nuit .club-name {
+        color:#f9fafb;
+      }
+      body.nuit .club-description {
+        color:#d1d5db;
+      }
+      body.nuit .club-meta {
+        color:#9ca3af;
+      }
+
+      /* mise en page partie détail */
+      .club-layout {
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+        gap:18px;
+      }
+      .club-column {
+        background:#fff;
+        border-radius:14px;
+        border:1px solid #e5e7eb;
+        padding:14px 16px;
+      }
+      .club-subtitle {
+        margin-top:0;
+        font-size:1.1rem;
+      }
+
+      .book-list,
+      .lib-list,
+      .member-list {
+        list-style:none;
+        padding:0;
+        margin:0;
+      }
+
+      .book-item,
+      .lib-item,
+      .member-item {
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        padding:8px 0;
+        border-bottom:1px solid #f3f4f6;
+      }
+
+      .member-main {
+        display:flex;
+        gap:10px;
+        align-items:center;
+      }
+      .member-avatar {
+        width:40px;
+        height:40px;
+        border-radius:50%;
+        object-fit:cover;
+      }
+      .member-avatar-fallback {
+        width:40px;
+        height:40px;
+        border-radius:50%;
+        background:#5f7f5f;
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+      }
+      .member-name {
+        font-weight:600;
+      }
+      .member-meta {
+        font-size:.8rem;
+        color:#6b7280;
+      }
+      .badge-owner {
+        display:inline-block;
+        margin-left:6px;
+        padding:2px 6px;
+        font-size:.7rem;
+        border-radius:999px;
+        background:#facc15;
+        color:#92400e;
+      }
+
+      /* Livres : affichage avec couverture */
+      .book-main,
+      .lib-main {
+        display:flex;
+        gap:10px;
+      }
+      .book-cover,
+      .lib-cover {
+        width:42px;
+        height:62px;
+        object-fit:cover;
+        border-radius:6px;
+        background:#e5e7eb;
+        flex-shrink:0;
+      }
+      .book-title {
+        font-size:.95rem;
+        font-weight:600;
+        margin-bottom:2px;
+      }
+      .book-authors {
+        font-size:.8rem;
+        color:#6b7280;
+      }
+      .book-meta-small {
+        font-size:.75rem;
+        color:#9ca3af;
+      }
+
+      /* Messages */
+      .messages-box {
+        max-height:320px;
+        overflow-y:auto;
+        padding-right:6px;
+      }
+      .message-item {
+        border-bottom:1px solid #f3f4f6;
+        padding:8px 0;
+      }
+      .message-header {
+        display:flex;
+        gap:8px;
+        align-items:center;
+      }
+      .message-avatar {
+        width:32px;
+        height:32px;
+        border-radius:50%;
+        object-fit:cover;
+      }
+      .message-avatar-fallback {
+        width:32px;
+        height:32px;
+        border-radius:50%;
+        background:#5f7f5f;
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:.85rem;
+      }
+      .message-meta {
+        font-size:.8rem;
+      }
+      .message-author {
+        font-weight:600;
+      }
+      .message-date {
+        display:block;
+        font-size:.75rem;
+        color:#9ca3af;
+      }
+      .message-content {
+        margin-left:40px;
+        font-size:.9rem;
+        margin-top:2px;
+      }
+      .badge-me {
+        margin-left:4px;
+        font-size:.7rem;
+        background:#d1fae5;
+        color:#047857;
+        padding:1px 6px;
+        border-radius:999px;
+      }
+      .message-me .message-content {
+        background:#f0fdf4;
+        border-radius:8px;
+        padding:4px 8px;
+      }
+    </style>
+
     <?php
-    include __DIR__ . '/include/footer.inc.php';
     exit;
+}
+
+
+//CAS 2 : ID PRÉSENT → DÉTAIL DU CLUB
+
+
+// --- Gestion "Supprimer le club" (owner uniquement) ---
+$deleteError = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_club'])) {
+    if ($cm->deleteClub($clubId)) {
+        header('Location: club.php?deleted=1');
+        exit;
+    } else {
+        $deleteError = "Impossible de supprimer ce club.";
+    }
+}
+
+// --- Gestion "Quitter le club" ---
+$leaveError = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['leave_club'])) {
+    if ($cm->leaveClub($clubId)) {
+        header('Location: club.php?left=1');
+        exit;
+    } else {
+        $leaveError = "Impossible de quitter ce club (vous en êtes peut-être le créateur).";
+    }
 }
 
 // --- Gestion des messages (submit classique, pas AJAX) ---
@@ -68,6 +583,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['club_message'])) {
     }
 }
 
+// Récupérer les infos du club (et vérifier l'accès)
+$club = $cm->getClub($clubId);
+if (!$club) {
+    // L'utilisateur n'est pas membre de ce club ou club inexistant
+    $pageTitle = "Club introuvable – Kitabee";
+    include __DIR__ . '/include/header.inc.php';
+    ?>
+    <section class="section">
+      <div class="container" style="max-width:800px;">
+        <h1 class="section-title">Club introuvable</h1>
+        <p>Ce club n'existe pas ou vous n'en faites pas partie.</p>
+        <a class="btn btn-ghost" href="club.php">⬅ Retour à mes clubs</a>
+      </div>
+    </section>
+    <?php
+    include __DIR__ . '/include/footer.inc.php';
+    exit;
+}
+
 // === Données pour l'affichage ===
 
 // membres du club
@@ -80,12 +614,12 @@ $invitableFriends = array_filter($friends, function ($f) use ($memberIds) {
     return !in_array((int)$f['id'], $memberIds, true);
 });
 
-// livres du club
+// livres du club (avec title, authors, thumbnail si dispo)
 $clubBooks = $cm->getBooks($clubId);
 
 // bibliothèque perso de l'utilisateur (pour proposer des livres à ajouter au club)
 $stmtLib = $pdo->prepare("
-    SELECT id, google_book_id, added_at
+    SELECT id, google_book_id, title, authors, thumbnail, added_at
     FROM user_library
     WHERE user_id = :uid
     ORDER BY added_at DESC
@@ -137,9 +671,45 @@ include __DIR__ . '/include/header.inc.php';
             <?php endif; ?>
             • Créé le <?= htmlspecialchars(date('d/m/Y', strtotime($club['created_at'])), ENT_QUOTES, 'UTF-8') ?>
           </p>
+
+          <?php if ($leaveError): ?>
+            <p style="margin-top:8px; font-size:.85rem; color:#dc2626;">
+              <?= htmlspecialchars($leaveError, ENT_QUOTES, 'UTF-8') ?>
+            </p>
+          <?php endif; ?>
+          <?php if ($deleteError): ?>
+            <p style="margin-top:8px; font-size:.85rem; color:#dc2626;">
+              <?= htmlspecialchars($deleteError, ENT_QUOTES, 'UTF-8') ?>
+            </p>
+          <?php endif; ?>
         </div>
-        <div style="display:flex; align-items:center;">
-          <a href="clubs.php" class="btn btn-ghost">⬅ Retour à mes clubs</a>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <a href="club.php" class="btn btn-ghost">⬅ Retour à mes clubs</a>
+
+          <?php if ($club['my_role'] !== 'owner'): ?>
+            <form method="post" onsubmit="return confirm('Voulez-vous vraiment quitter ce club ?');" style="margin:0;">
+              <button 
+                type="submit" 
+                name="leave_club" 
+                value="1" 
+                class="btn btn-ghost" 
+                style="background:#fee2e2; color:#b91c1c;">
+                Quitter le club
+              </button>
+            </form>
+          <?php endif; ?>
+
+          <?php if ($club['my_role'] === 'owner'): ?>
+            <form method="post"
+                  onsubmit="return confirm('Supprimer définitivement ce club pour tous les membres ?');"
+                  style="margin:0;">
+              <input type="hidden" name="delete_club" value="1">
+              <button type="submit" class="btn btn-ghost" style="background:#dc2626;color:white;">
+                🗑️ Supprimer le club
+              </button>
+            </form>
+          <?php endif; ?>
+
         </div>
       </div>
     </header>
@@ -207,7 +777,7 @@ include __DIR__ . '/include/header.inc.php';
                 <button type="button" class="btn btn-primary" id="invite-friend-btn">Inviter</button>
               </div>
               <p id="invite-friend-feedback" style="margin:6px 0 0; font-size:.8rem; color:#16a34a; display:none;">
-                Invitation envoyée / ajout au club réussi.
+                Invitation envoyée.
               </p>
             <?php endif; ?>
           </div>
@@ -223,15 +793,39 @@ include __DIR__ . '/include/header.inc.php';
         <?php else: ?>
           <ul class="book-list">
             <?php foreach ($clubBooks as $b): ?>
+              <?php
+                $title    = $b['title'] ?: 'Titre inconnu';
+                $authors  = $b['authors'] ?: 'Auteur inconnu';
+                $thumb    = $b['thumbnail'] ?: "https://via.placeholder.com/80x120?text=Pas+d'image";
+                $addedAt  = $b['added_at'] ?? null;
+              ?>
               <li class="book-item">
-                <div>
-                  <div class="book-title">
-                    Livre Google ID :
-                    <code><?= htmlspecialchars($b['google_book_id'], ENT_QUOTES, 'UTF-8') ?></code>
+                <div class="book-main">
+                  <img
+                    src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
+                    alt="Couverture du livre"
+                    class="book-cover"
+                  >
+                  <div>
+                    <div class="book-title">
+                      <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <div class="book-authors">
+                      <?= htmlspecialchars($authors, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <div class="book-meta-small">
+                      <?php if ($addedAt): ?>
+                        Ajouté le <?= htmlspecialchars(date('d/m/Y', strtotime($addedAt)), ENT_QUOTES, 'UTF-8') ?>
+                      <?php endif; ?>
+                      • <a
+                          href="https://books.google.com/books?id=<?= urlencode($b['google_book_id']) ?>"
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          Voir sur Google Books
+                        </a>
+                    </div>
                   </div>
-                  <a href="https://books.google.com/books?id=<?= urlencode($b['google_book_id']) ?>" target="_blank" rel="noopener" class="book-link">
-                    Voir sur Google Books
-                  </a>
                 </div>
                 <button
                   type="button"
@@ -256,14 +850,29 @@ include __DIR__ . '/include/header.inc.php';
             </p>
             <ul class="lib-list">
               <?php foreach ($userLibrary as $book): ?>
+                <?php
+                  $title   = $book['title'] ?: 'Titre inconnu';
+                  $authors = $book['authors'] ?: 'Auteur inconnu';
+                  $thumb   = $book['thumbnail'] ?: "https://via.placeholder.com/80x120?text=Pas+d'image";
+                ?>
                 <li class="lib-item">
-                  <div>
-                    <div class="book-title">
-                      <code><?= htmlspecialchars($book['google_book_id'], ENT_QUOTES, 'UTF-8') ?></code>
+                  <div class="lib-main">
+                    <img
+                      src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
+                      alt="Couverture du livre"
+                      class="lib-cover"
+                    >
+                    <div>
+                      <div class="book-title">
+                        <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
+                      </div>
+                      <div class="book-authors">
+                        <?= htmlspecialchars($authors, ENT_QUOTES, 'UTF-8') ?>
+                      </div>
+                      <small class="book-meta-small">
+                        Ajouté à votre bibliothèque le <?= htmlspecialchars(date('d/m/Y', strtotime($book['added_at'])), ENT_QUOTES, 'UTF-8') ?>
+                      </small>
                     </div>
-                    <small style="color:#9ca3af;">
-                      Ajouté à votre bibliothèque le <?= htmlspecialchars(date('d/m/Y', strtotime($book['added_at'])), ENT_QUOTES, 'UTF-8') ?>
-                    </small>
                   </div>
                   <button
                     type="button"
@@ -361,8 +970,8 @@ include __DIR__ . '/include/header.inc.php';
   }
 
   // Inviter un ami comme membre
-  const inviteSelect = document.getElementById('invite-friend-select');
-  const inviteBtn    = document.getElementById('invite-friend-btn');
+  const inviteSelect   = document.getElementById('invite-friend-select');
+  const inviteBtn      = document.getElementById('invite-friend-btn');
   const inviteFeedback = document.getElementById('invite-friend-feedback');
 
   if (inviteBtn && inviteSelect) {
@@ -372,10 +981,12 @@ include __DIR__ . '/include/header.inc.php';
       postClubAction('add_member', { userId }, (res) => {
         if (res.ok) {
           inviteFeedback.style.display = 'block';
-          inviteFeedback.textContent = "Membre ajouté au club.";
-          setTimeout(() => location.reload(), 800);
+          inviteFeedback.textContent = "Invitation envoyée.";
+          setTimeout(() => {
+            inviteFeedback.style.display = 'none';
+          }, 1500);
         } else {
-          alert("Impossible d'ajouter ce membre au club.");
+          alert("Impossible d'inviter ce membre au club.");
         }
       });
     });

@@ -1,5 +1,5 @@
 <?php
-// amis.php — Gestion des amis (recherche + liste)
+// amis.php — Gestion des amis (recherche, demandes, liste d'amis)
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -9,157 +9,317 @@ if (empty($_SESSION['user'])) {
 }
 
 require_once __DIR__ . '/secret/database.php';
-require_once __DIR__ . '/classes/FriendManager.php';
 
-$userId = (int)$_SESSION['user'];
+$userId    = (int)$_SESSION['user'];
+$login     = $_SESSION['login'] ?? 'Utilisateur';
 $pageTitle = "Mes amis – Kitabee";
 
-$fm = new FriendManager($pdo, $userId);
+$message = null;
+$error   = null;
 
-// --- Récupérer les listes pour l'affichage ---
-$friends      = $fm->getFriends();   // amis acceptés
-$incomingReqs = $fm->getIncoming();  // demandes reçues
-$outgoingReqs = $fm->getOutgoing();  // demandes envoyées
 
-// Pour marquer l'état des gens dans les résultats de recherche
-$friendIds   = array_column($friends, 'id');
-$incomingIds = array_column($incomingReqs, 'id');
-$outgoingIds = array_column($outgoingReqs, 'id');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
 
-// --- Recherche d'utilisateurs ---
-$q = trim($_GET['q'] ?? '');
+    // 1) Envoyer une demande d'ami
+    if ($action === 'send_request') {
+        $targetId = isset($_POST['target_id']) ? (int)$_POST['target_id'] : 0;
+
+        if ($targetId <= 0 || $targetId === $userId) {
+            $error = "Utilisateur invalide.";
+        } else {
+            // Vérifier si une relation existe déjà
+            $stmt = $pdo->prepare("
+                SELECT id, status
+                FROM user_friends
+                WHERE (user_id = :me AND friend_id = :them)
+                   OR (user_id = :them AND friend_id = :me)
+                LIMIT 1
+            ");
+            $stmt->execute([
+                ':me'   => $userId,
+                ':them' => $targetId,
+            ]);
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($existing) {
+                if ($existing['status'] === 'pending') {
+                    $error = "Une demande d'ami est déjà en attente entre vous.";
+                } elseif ($existing['status'] === 'accepted') {
+                    $error = "Vous êtes déjà amis avec cette personne.";
+                } else {
+                    $error = "Une relation existe déjà avec cette personne.";
+                }
+            } else {
+                // Créer la demande
+                $stmt = $pdo->prepare("
+                    INSERT INTO user_friends (user_id, friend_id, status, created_at)
+                    VALUES (:me, :them, 'pending', NOW())
+                ");
+                $ok = $stmt->execute([
+                    ':me'   => $userId,
+                    ':them' => $targetId,
+                ]);
+                if ($ok) {
+                    $message = "Demande d'ami envoyée ✔";
+                } else {
+                    $error = "Impossible d'envoyer la demande d'ami.";
+                }
+            }
+        }
+    }
+
+    // 2) Accepter une demande reçue
+    if ($action === 'accept_request') {
+        $requestId = isset($_POST['request_id']) ? (int)$_POST['request_id'] : 0;
+
+        if ($requestId > 0) {
+            // On vérifie que la demande m'est bien adressée
+            $stmt = $pdo->prepare("
+                UPDATE user_friends
+                SET status = 'accepted'
+                WHERE id = :id
+                  AND friend_id = :me
+                  AND status = 'pending'
+            ");
+            $ok = $stmt->execute([
+                ':id' => $requestId,
+                ':me' => $userId,
+            ]);
+
+            if ($ok && $stmt->rowCount() === 1) {
+                $message = "Demande d'ami acceptée 👍";
+            } else {
+                $error = "Impossible d'accepter cette demande.";
+            }
+        }
+    }
+
+    // 3) Refuser une demande reçue
+    if ($action === 'reject_request') {
+        $requestId = isset($_POST['request_id']) ? (int)$_POST['request_id'] : 0;
+
+        if ($requestId > 0) {
+            // On supprime la demande si elle m'est adressée
+            $stmt = $pdo->prepare("
+                DELETE FROM user_friends
+                WHERE id = :id
+                  AND friend_id = :me
+                  AND status = 'pending'
+            ");
+            $ok = $stmt->execute([
+                ':id' => $requestId,
+                ':me' => $userId,
+            ]);
+
+            if ($ok && $stmt->rowCount() === 1) {
+                $message = "Demande d'ami refusée.";
+            } else {
+                $error = "Impossible de refuser cette demande.";
+            }
+        }
+    }
+}
+
+// RECHERCHE D'UTILISATEURS
+
+$searchTerm = trim($_GET['q'] ?? '');
 $searchResults = [];
 
-if ($q !== '') {
-    $sql = "
-        SELECT id, login, email, avatar
+if ($searchTerm !== '') {
+    $stmt = $pdo->prepare("
+        SELECT id, login, avatar, email
         FROM users
-        WHERE (login LIKE :q OR email LIKE :q)
+        WHERE (login LIKE :term OR email LIKE :term)
           AND id <> :me
-        ORDER BY login
+        ORDER BY login ASC
         LIMIT 20
-    ";
-    $stmt = $pdo->prepare($sql);
+    ");
     $stmt->execute([
-        ':q'  => '%' . $q . '%',
-        ':me' => $userId
+        ':term' => '%' . $searchTerm . '%',
+        ':me'   => $userId,
     ]);
     $searchResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// DEMANDES REÇUES
+
+$stmt = $pdo->prepare("
+    SELECT uf.id, uf.user_id, uf.created_at,
+           u.login, u.avatar
+    FROM user_friends uf
+    JOIN users u ON u.id = uf.user_id
+    WHERE uf.friend_id = :me
+      AND uf.status = 'pending'
+    ORDER BY uf.created_at DESC
+");
+$stmt->execute([':me' => $userId]);
+$incomingRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// MES AMIS (relations acceptées)
+
+$stmt = $pdo->prepare("
+    SELECT
+      CASE 
+        WHEN uf.user_id = :me THEN uf.friend_id
+        ELSE uf.user_id
+      END AS friend_id,
+      u.login,
+      u.avatar
+    FROM user_friends uf
+    JOIN users u ON u.id = CASE 
+                              WHEN uf.user_id = :me THEN uf.friend_id
+                              ELSE uf.user_id
+                           END
+    WHERE (uf.user_id = :me OR uf.friend_id = :me)
+      AND uf.status = 'accepted'
+    ORDER BY u.login ASC
+");
+$stmt->execute([':me' => $userId]);
+$friends = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 include __DIR__ . '/include/header.inc.php';
 ?>
 
 <section class="section">
   <div class="container" style="max-width:900px;">
+
     <h1 class="section-title">Mes amis</h1>
-    <p>Recherchez des utilisateurs Kitabee pour les ajouter en amis, et gérez vos relations.</p>
+    <p>Recherchez des utilisateurs, envoyez des demandes d’ami et gérez vos relations.</p>
 
-    <!-- ====== Recherche d'amis ====== -->
-    <form method="get" class="card" style="padding:16px 20px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-      <label for="search" style="font-weight:600;">Rechercher un utilisateur :</label>
-      <input
-        id="search"
-        name="q"
-        type="text"
-        value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="Pseudo ou e-mail"
-        style="flex:1; min-width:180px;"
-      >
-      <button class="btn btn-primary" type="submit">Rechercher</button>
-    </form>
+    <?php if ($error): ?>
+      <div class="card" style="padding:10px; border-left:4px solid #dc2626; margin:10px 0;">
+        <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+    <?php endif; ?>
 
-    <?php if ($q !== ''): ?>
-      <section aria-labelledby="search-results-title" style="margin-bottom:32px;">
-        <h2 id="search-results-title" style="font-size:1.1rem; margin-bottom:10px;">
-          Résultats pour « <?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?> »
-        </h2>
+    <?php if ($message): ?>
+      <div class="card" style="padding:10px; border-left:4px solid #16a34a; margin:10px 0;">
+        <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+    <?php endif; ?>
+
+    <!-- Barre de recherche -->
+    <section class="card" style="padding:16px 18px; border-radius:14px; border:1px solid #e5e7eb; margin-bottom:18px;">
+      <h2 style="margin-top:0; font-size:1.05rem;">Rechercher un utilisateur</h2>
+      <form method="get" style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input
+          type="text"
+          name="q"
+          value="<?= htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8') ?>"
+          placeholder="Pseudo ou e-mail"
+          style="flex:1; min-width:220px;"
+        >
+        <button type="submit" class="btn btn-primary">Rechercher</button>
+      </form>
+
+      <?php if ($searchTerm !== ''): ?>
+        <p style="margin-top:8px; font-size:.85rem; color:#6b7280;">
+          Résultats pour « <?= htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8') ?> » :
+        </p>
 
         <?php if (!$searchResults): ?>
-          <p>Aucun utilisateur trouvé pour cette recherche.</p>
+          <p style="margin-top:4px;">Aucun utilisateur trouvé.</p>
         <?php else: ?>
-          <div class="friend-grid">
-            <?php foreach ($searchResults as $user): 
-              $uid = (int)$user['id'];
-              $isFriend   = in_array($uid, $friendIds, true);
-              $isIncoming = in_array($uid, $incomingIds, true);
-              $isOutgoing = in_array($uid, $outgoingIds, true);
-            ?>
-              <article class="friend-card">
-                <div class="friend-main">
-                  <?php if (!empty($user['avatar'])): ?>
-                    <img class="friend-avatar" src="uploads/avatars/<?= htmlspecialchars($user['avatar'], ENT_QUOTES, 'UTF-8') ?>" alt="Avatar de <?= htmlspecialchars($user['login'], ENT_QUOTES, 'UTF-8') ?>">
+          <ul style="list-style:none; padding:0; margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+            <?php foreach ($searchResults as $u): ?>
+              <li style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <?php if (!empty($u['avatar'])): ?>
+                    <img src="uploads/avatars/<?= htmlspecialchars($u['avatar'], ENT_QUOTES, 'UTF-8') ?>"
+                         alt=""
+                         style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
                   <?php else: ?>
-                    <div class="friend-avatar friend-avatar-fallback">
-                      <?= strtoupper(substr($user['login'], 0, 1)) ?>
+                    <div style="width:36px; height:36px; border-radius:50%; background:#5f7f5f; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                      <?= strtoupper(substr($u['login'], 0, 1)) ?>
                     </div>
                   <?php endif; ?>
                   <div>
-                    <div class="friend-name"><?= htmlspecialchars($user['login'], ENT_QUOTES, 'UTF-8') ?></div>
-                    <div class="friend-email"><?= htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <div style="font-weight:600;"><?= htmlspecialchars($u['login'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <div style="font-size:.8rem; color:#6b7280;"><?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?></div>
                   </div>
                 </div>
-
-                <div class="friend-actions">
-                  <?php if ($isFriend): ?>
-                    <span class="badge badge-success">Déjà ami</span>
-                  <?php elseif ($isOutgoing): ?>
-                    <span class="badge badge-soft">Demande envoyée</span>
-                  <?php elseif ($isIncoming): ?>
-                    <span class="badge badge-soft">Vous a envoyé une demande</span>
-                  <?php else: ?>
-                    <button
-                      class="btn btn-primary js-add-friend"
-                      data-user-id="<?= $uid ?>"
-                      type="button"
-                    >
-                      Ajouter en ami
-                    </button>
-                  <?php endif; ?>
-                </div>
-              </article>
+                <form method="post">
+                  <input type="hidden" name="action" value="send_request">
+                  <input type="hidden" name="target_id" value="<?= (int)$u['id'] ?>">
+                  <button type="submit" class="btn btn-primary">Ajouter en ami</button>
+                </form>
+              </li>
             <?php endforeach; ?>
-          </div>
+          </ul>
         <?php endif; ?>
-      </section>
-    <?php endif; ?>
+      <?php endif; ?>
+    </section>
 
-    <!-- ====== Mes amis actuels ====== -->
-    <section aria-labelledby="friends-list-title">
-      <h2 id="friends-list-title" style="font-size:1.1rem; margin-bottom:10px;">Mes amis</h2>
+    <!-- Demandes d'amis reçues -->
+    <section class="card" style="padding:16px 18px; border-radius:14px; border:1px solid #e5e7eb; margin-bottom:18px;">
+      <h2 style="margin-top:0; font-size:1.05rem;">Demandes d’amis reçues</h2>
 
-      <?php if (!$friends): ?>
-        <p>Aucun ami pour le moment. Utilisez la barre de recherche ci-dessus pour trouver des lecteurs 📚.</p>
+      <?php if (!$incomingRequests): ?>
+        <p style="font-size:.9rem; color:#6b7280;">Aucune demande d'ami en attente.</p>
       <?php else: ?>
-        <div class="friend-grid">
-          <?php foreach ($friends as $f): $fid = (int)$f['id']; ?>
-            <article class="friend-card friend-item">
-              <div class="friend-main">
-                <?php if (!empty($f['avatar'])): ?>
-                  <img class="friend-avatar" src="uploads/avatars/<?= htmlspecialchars($f['avatar'], ENT_QUOTES, 'UTF-8') ?>" alt="Avatar de <?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?>">
+        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;">
+          <?php foreach ($incomingRequests as $req): ?>
+            <li style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; border-radius:10px; background:#fefce8;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <?php if (!empty($req['avatar'])): ?>
+                  <img src="uploads/avatars/<?= htmlspecialchars($req['avatar'], ENT_QUOTES, 'UTF-8') ?>"
+                       alt=""
+                       style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
                 <?php else: ?>
-                  <div class="friend-avatar friend-avatar-fallback">
-                    <?= strtoupper(substr($f['login'], 0, 1)) ?>
+                  <div style="width:36px; height:36px; border-radius:50%; background:#f59e0b; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                    <?= strtoupper(substr($req['login'], 0, 1)) ?>
                   </div>
                 <?php endif; ?>
                 <div>
-                  <div class="friend-name"><?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?></div>
-                  <div class="friend-email"><?= htmlspecialchars($f['email'], ENT_QUOTES, 'UTF-8') ?></div>
+                  <div style="font-weight:600;"><?= htmlspecialchars($req['login'], ENT_QUOTES, 'UTF-8') ?></div>
+                  <div style="font-size:.8rem; color:#6b7280;">
+                    Vous a envoyé une demande d'ami le
+                    <?= htmlspecialchars(date('d/m/Y', strtotime($req['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+                  </div>
                 </div>
               </div>
-
-              <div class="friend-actions">
-                <button
-                  class="btn btn-ghost js-remove-friend"
-                  data-user-id="<?= $fid ?>"
-                  type="button"
-                >
-                  Retirer des amis
-                </button>
+              <div style="display:flex; gap:6px;">
+                <form method="post">
+                  <input type="hidden" name="action" value="accept_request">
+                  <input type="hidden" name="request_id" value="<?= (int)$req['id'] ?>">
+                  <button type="submit" class="btn btn-primary">Accepter</button>
+                </form>
+                <form method="post">
+                  <input type="hidden" name="action" value="reject_request">
+                  <input type="hidden" name="request_id" value="<?= (int)$req['id'] ?>">
+                  <button type="submit" class="btn btn-ghost">Refuser</button>
+                </form>
               </div>
-            </article>
+            </li>
           <?php endforeach; ?>
-        </div>
+        </ul>
+      <?php endif; ?>
+    </section>
+
+    <!-- Liste de mes amis -->
+    <section class="card" style="padding:16px 18px; border-radius:14px; border:1px solid #e5e7eb;">
+      <h2 style="margin-top:0; font-size:1.05rem;">Mes amis</h2>
+
+      <?php if (!$friends): ?>
+        <p style="font-size:.9rem; color:#6b7280;">Vous n'avez pas encore d'amis. Envoyez une demande via la barre de recherche.</p>
+      <?php else: ?>
+        <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;">
+          <?php foreach ($friends as $f): ?>
+            <li style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
+              <?php if (!empty($f['avatar'])): ?>
+                <img src="uploads/avatars/<?= htmlspecialchars($f['avatar'], ENT_QUOTES, 'UTF-8') ?>"
+                     alt=""
+                     style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+              <?php else: ?>
+                <div style="width:36px; height:36px; border-radius:50%; background:#3b82f6; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                  <?= strtoupper(substr($f['login'], 0, 1)) ?>
+                </div>
+              <?php endif; ?>
+              <div style="font-weight:600;"><?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?></div>
+            </li>
+          <?php endforeach; ?>
+        </ul>
       <?php endif; ?>
     </section>
 
@@ -167,124 +327,3 @@ include __DIR__ . '/include/header.inc.php';
 </section>
 
 <?php include __DIR__ . '/include/footer.inc.php'; ?>
-
-<style>
-.friend-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
-}
-.friend-card {
-  background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:14px;
-  padding:12px 14px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  box-shadow:0 3px 8px rgba(0,0,0,0.04);
-}
-.friend-main {
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.friend-avatar {
-  width:48px;
-  height:48px;
-  border-radius:999px;
-  object-fit:cover;
-}
-.friend-avatar-fallback {
-  background:#5f7f5f;
-  color:#fff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:600;
-}
-.friend-name {
-  font-weight:600;
-}
-.friend-email {
-  font-size:.8rem;
-  color:#6b7280;
-}
-.friend-actions {
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  align-items:center;
-}
-.badge {
-  display:inline-block;
-  padding:3px 8px;
-  border-radius:999px;
-  font-size:.78rem;
-}
-.badge-success {
-  background:#dcfce7;
-  color:#166534;
-}
-.badge-soft {
-  background:#e5e7eb;
-  color:#374151;
-}
-</style>
-
-<script>
-// Petit JS AJAX pour ajouter / supprimer des amis
-(function() {
-  function postFriend(action, userId, onDone) {
-    const form = new FormData();
-    form.append('action', action);
-    form.append('user_id', userId);
-
-    fetch('friends_ajax.php', {
-      method: 'POST',
-      body: form,
-      credentials: 'same-origin'
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (onDone) onDone(data);
-    })
-    .catch(err => {
-      console.error('Erreur AJAX amis:', err);
-      alert("Une erreur est survenue.");
-    });
-  }
-
-  // Ajouter un ami
-  document.querySelectorAll('.js-add-friend').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const id = this.dataset.userId;
-      postFriend('send', id, res => {
-        if (res.ok) {
-          this.textContent = 'Demande envoyée';
-          this.disabled = true;
-        } else {
-          alert("Impossible d'envoyer la demande d'ami.");
-        }
-      });
-    });
-  });
-
-  // Supprimer un ami
-  document.querySelectorAll('.js-remove-friend').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const id = this.dataset.userId;
-      if (!confirm('Voulez-vous vraiment retirer cet ami ?')) return;
-      const card = this.closest('.friend-item');
-      postFriend('remove', id, res => {
-        if (res.ok) {
-          if (card) card.remove();
-        } else {
-          alert("Impossible de supprimer cet ami.");
-        }
-      });
-    });
-  });
-})();
-</script>

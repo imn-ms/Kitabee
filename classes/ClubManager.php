@@ -1,5 +1,5 @@
 <?php
-//ClubManager.php
+// ClubManager.php
 
 /**
  * Gestion des clubs de lecture (POO)
@@ -109,6 +109,62 @@ class ClubManager
         return $club !== null && $club['my_role'] === 'owner';
     }
 
+    /**
+     * Supprime complètement un club (seulement si l'utilisateur courant en est le créateur).
+     * Supprime aussi : membres, livres, messages, notifications liées au club.
+     */
+    public function deleteClub(int $clubId): bool
+    {
+        if (!$this->isOwner($clubId)) {
+            return false;
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+
+            // Supprimer les messages du club
+            $stmt = $this->pdo->prepare("
+                DELETE FROM book_club_messages
+                WHERE club_id = :cid
+            ");
+            $stmt->execute([':cid' => $clubId]);
+
+            // Supprimer les livres du club
+            $stmt = $this->pdo->prepare("
+                DELETE FROM book_club_books
+                WHERE club_id = :cid
+            ");
+            $stmt->execute([':cid' => $clubId]);
+
+            // Supprimer les membres du club
+            $stmt = $this->pdo->prepare("
+                DELETE FROM book_club_members
+                WHERE club_id = :cid
+            ");
+            $stmt->execute([':cid' => $clubId]);
+
+            // Supprimer les notifications liées au club (invitations, etc.)
+            $stmt = $this->pdo->prepare("
+                DELETE FROM notifications
+                WHERE club_id = :cid
+            ");
+            $stmt->execute([':cid' => $clubId]);
+
+            // Supprimer le club lui-même
+            $stmt = $this->pdo->prepare("
+                DELETE FROM book_clubs
+                WHERE id = :cid
+            ");
+            $stmt->execute([':cid' => $clubId]);
+
+            $this->pdo->commit();
+            return true;
+        } catch (Throwable $e) {
+            $this->pdo->rollBack();
+            return false;
+        }
+    }
+
     /* ================== Membres ================== */
 
     /**
@@ -182,7 +238,11 @@ class ClubManager
     /* ================== Livres ================== */
 
     /**
-     * Liste des livres d'un club (google_book_id, added_by, added_at).
+     * Liste des livres d'un club (google_book_id, added_by, added_at + title, authors, thumbnail).
+     *
+     * On joint sur user_library pour récupérer les méta-données
+     * (titre, auteur(s), couverture) du livre ajouté par l'utilisateur
+     * (via added_by).
      */
     public function getBooks(int $clubId): array
     {
@@ -191,10 +251,20 @@ class ClubManager
         }
 
         $sql = "
-            SELECT id, google_book_id, added_by, added_at
-            FROM book_club_books
-            WHERE club_id = :cid
-            ORDER BY added_at DESC
+            SELECT
+                b.id,
+                b.google_book_id,
+                b.added_by,
+                b.added_at,
+                ul.title,
+                ul.authors,
+                ul.thumbnail
+            FROM book_club_books b
+            LEFT JOIN user_library ul
+              ON ul.google_book_id = b.google_book_id
+             AND ul.user_id       = b.added_by
+            WHERE b.club_id = :cid
+            ORDER BY b.added_at DESC
         ";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':cid' => $clubId]);
