@@ -1,6 +1,6 @@
 <?php
 /**
- * header.php – Kitabee
+ * header.php – Kitabee (VERSION AVEC GOOGLE TRANSLATE UNIQUEMENT)
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -10,9 +10,6 @@ if (session_status() === PHP_SESSION_NONE) {
 /* ========= UTILISATEUR ========= */
 $loggedUserId     = $_SESSION['user']  ?? null;
 $loggedLogin      = $_SESSION['login'] ?? null;
-// ANCIEN : avatar fichier
-// $loggedAvatar   = $_SESSION['avatar'] ?? null;
-// NOUVEAU : simple booléen indiquant si un avatar existe en BDD
 $loggedHasAvatar  = $_SESSION['avatar_has'] ?? false;
 
 /* ========= DEMANDES D'AMIS EN ATTENTE ========= */
@@ -50,7 +47,7 @@ if ($loggedUserId && isset($pdo)) {
     }
 }
 
-/* ========= COOKIES / STYLE ========= */
+/* ========= THEME JOUR / NUIT ========= */
 $cookieConsent    = $_COOKIE['cookie_consent'] ?? null;
 $allowNonEssential = ($cookieConsent === 'accepted');
 $isPostToggleStyle = isset($_POST['toggle_style']);
@@ -70,8 +67,7 @@ if ($isPostToggleStyle) {
             'samesite' => 'Lax',
         ]);
 
-        $redirect = $_SERVER['REQUEST_URI'] ?? $_SERVER['PHP_SELF'];
-        header('Location: ' . $redirect);
+        header("Location: " . ($_SERVER['REQUEST_URI'] ?? $_SERVER['PHP_SELF']));
         exit;
     }
 }
@@ -81,93 +77,13 @@ $last_visit = $_COOKIE['last_visit'] ?? null;
 if ($allowNonEssential) {
     $last_visit = date('d/m/Y H:i:s');
     setcookie('last_visit', $last_visit, [
-        'expires'  => time() + 365 * 24 * 60 * 60,
-        'path'     => '/',
-        'secure'   => false,
-        'httponly' => false,
-        'samesite' => 'Lax',
+        'expires'  => time() + 365*24*60*60,
+        'path'     => '/'
     ]);
-}
-
-/* ========= LANGUES ========= */
-$AVAILABLE_LANGS = ['fr', 'en', 'es'];
-$DEFAULT_LANG    = 'fr';
-
-if (isset($_GET['lang']) && in_array($_GET['lang'], $AVAILABLE_LANGS, true)) {
-    $_SESSION['lang'] = $_GET['lang'];
-}
-$currentLang = $_SESSION['lang'] ?? $DEFAULT_LANG;
-
-function lt_translate(string $text, string $target): string {
-    if ($text === '') return '';
-
-    if (!isset($_SESSION['trans_cache'])) {
-        $_SESSION['trans_cache'] = [];
-    }
-    $cacheKey = md5($target . '|' . $text);
-    if (isset($_SESSION['trans_cache'][$cacheKey])) {
-        return $_SESSION['trans_cache'][$cacheKey];
-    }
-
-    $apiUrl  = 'https://libretranslate.de/translate';
-    $payload = [
-        'q'      => $text,
-        'source' => 'fr',
-        'target' => $target,
-        'format' => 'text'
-    ];
-
-    if (function_exists('curl_init')) {
-        $ch = curl_init($apiUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS     => json_encode($payload),
-            CURLOPT_TIMEOUT        => 4,
-        ]);
-        $result = curl_exec($ch);
-        $err    = curl_error($ch);
-        curl_close($ch);
-        if ($result && !$err) {
-            $json = json_decode($result, true);
-            if (isset($json['translatedText'])) {
-                $_SESSION['trans_cache'][$cacheKey] = $json['translatedText'];
-                return $json['translatedText'];
-            }
-        }
-    }
-
-    $ctx = stream_context_create([
-        'http' => [
-            'method'  => 'POST',
-            'header'  => "Content-Type: application/json\r\n",
-            'content' => json_encode($payload),
-            'timeout' => 4,
-        ]
-    ]);
-    $result = @file_get_contents($apiUrl, false, $ctx);
-    if ($result) {
-        $json = json_decode($result, true);
-        if (isset($json['translatedText'])) {
-            $_SESSION['trans_cache'][$cacheKey] = $json['translatedText'];
-            return $json['translatedText'];
-        }
-    }
-
-    return $text;
-}
-
-function t(string $text): string {
-    global $currentLang;
-    if ($currentLang === 'fr') {
-        return $text;
-    }
-    return lt_translate($text, $currentLang);
 }
 ?>
 <!DOCTYPE html>
-<html lang="<?= htmlspecialchars($currentLang) ?>">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -182,28 +98,8 @@ function t(string $text): string {
   <?php endif; ?>
 
   <script src="/include/script.js" defer></script>
-  <style>
-    .lang-switch {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    .lang-switch a {
-      text-decoration: none;
-      padding: 4px 8px;
-      border-radius: 8px;
-      font-weight: 600;
-      color: var(--ink, #1c1c1c);
-      transition: background .2s;
-    }
-    .lang-switch a:hover {
-      background: rgba(95,127,95,.1);
-    }
-    .lang-switch a.is-active {
-      background: #5f7f5f;
-      color: white;
-    }
 
+  <style>
     .notif-badge {
       display:inline-flex;
       min-width:18px;
@@ -217,7 +113,6 @@ function t(string $text): string {
       align-items:center;
       justify-content:center;
     }
-
     .profile-wrapper {
       position:relative;
       display:inline-block;
@@ -234,63 +129,88 @@ function t(string $text): string {
 
 <header class="site-header">
   <div class="container header-inner">
+
+    <!-- Logo -->
     <a href="/index.php" class="brand">
       <img src="/images/logo.png" alt="Kitabee" class="logo">
       <span class="brand-text">Kitabee</span>
     </a>
 
+    <!-- Menu burger -->
     <button class="menu-toggle" aria-label="Ouvrir le menu">
-      <span></span>
-      <span></span>
-      <span></span>
+      <span></span><span></span><span></span>
     </button>
 
+    <!-- Navigation -->
     <nav class="main-nav">
-      <a href="/bibliotheque.php" class="chip"><?= t("Bibliothèque") ?></a>
-      <a href="/actualites.php" class="chip"><?= t("Actualités") ?></a>
-      <a href="/recommandations.php" class="chip"><?= t("Recommandations") ?></a>
-      <a href="/contact.php" class="chip"><?= t("Contact") ?></a>
+      <a href="/bibliotheque.php" class="chip">Bibliothèque</a>
+      <a href="/actualites.php" class="chip">Actualités</a>
+      <a href="/recommandations.php" class="chip">Recommandations</a>
+      <a href="/contact.php" class="chip">Contact</a>
     </nav>
 
-    <div class="actions-right">
-      <div class="lang-switch">
-        <a href="?lang=fr" class="<?= $currentLang === 'fr' ? 'is-active' : '' ?>">FR</a>
-        <a href="?lang=en" class="<?= $currentLang === 'en' ? 'is-active' : '' ?>">EN</a>
-        <a href="?lang=es" class="<?= $currentLang === 'es' ? 'is-active' : '' ?>">ES</a>
-      </div>
-
-      <?php if ($loggedUserId): ?>
-        <div class="profile-wrapper">
-          <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
-            <?php if ($loggedHasAvatar): ?>
-              <!-- NOUVEAU : avatar via script BLOB -->
-              <img src="/avatar.php?id=<?= (int)$loggedUserId ?>"
-                   alt="Mon avatar"
-                   class="profile-avatar">
-            <?php else: ?>
-              <!-- Avatar par défaut : initiale -->
-              <span class="profile-circle">
-                <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
-              </span>
-            <?php endif; ?>
-          </a>
-          <?php
-          $totalNotifs = $pendingFriendRequests + $pendingClubInvites;
-          if ($totalNotifs > 0): ?>
-              <span class="notif-badge avatar-notif-badge"><?= $totalNotifs ?></span>
+    <!-- Compte utilisateur -->
+    <?php if ($loggedUserId): ?>
+      <div class="profile-wrapper">
+        <a href="/dashboard_user.php" class="profile-badge">
+          <?php if ($loggedHasAvatar): ?>
+            <img src="/avatar.php?id=<?= (int)$loggedUserId ?>" class="profile-avatar">
+          <?php else: ?>
+            <span class="profile-circle"><?= strtoupper(substr($loggedLogin ?? 'U',0,1)) ?></span>
           <?php endif; ?>
-        </div>
-      <?php else: ?>
-        <a href="/connexion.php" class="chip"><?= t("Connexion") ?></a>
-      <?php endif; ?>
+        </a>
 
-      <form method="post" class="theme-toggle" style="display:inline;">
-        <button type="submit" name="toggle_style" class="chip" title="<?= t("Basculer le contraste") ?>">
-          <?= ($style === 'jour') ? t("Mode nuit") : t("Mode jour") ?>
-        </button>
-      </form>
-    </div>
+        <?php $totalNotifs = $pendingFriendRequests + $pendingClubInvites; ?>
+        <?php if ($totalNotifs > 0): ?>
+          <span class="notif-badge avatar-notif-badge"><?= $totalNotifs ?></span>
+        <?php endif; ?>
+      </div>
+    <?php else: ?>
+      <a href="/connexion.php" class="chip">Connexion</a>
+    <?php endif; ?>
+
+    <!-- Thème -->
+    <form method="post" class="theme-toggle" style="display:inline;">
+      <button type="submit" name="toggle_style" class="chip">
+        <?= ($style === 'jour') ? "Mode nuit" : "Mode jour" ?>
+      </button>
+    </form>
+
+    <!-- Bouton de traduction Google -->
+    <button id="custom-translate-btn"
+            onclick="toggleTranslate();"
+            class="chip"
+            style="margin-left:8px;">
+      🌍 Langue
+    </button>
+
+  </div>
+
+  <!-- Widget Google Translate -->
+  <div id="google_translate_element"
+       style="position:absolute; top:10px; right:20px; display:none;">
   </div>
 </header>
+
+<!-- Scripts Google Translate -->
+<script>
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+      pageLanguage: 'fr',
+      includedLanguages: 'fr,en,es',
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+    }, 'google_translate_element');
+  }
+
+  function toggleTranslate() {
+    const el = document.getElementById('google_translate_element');
+    el.style.display = (el.style.display === 'none' || el.style.display === "") 
+      ? 'block'
+      : 'none';
+  }
+</script>
+
+<script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
 <main class="site-content">

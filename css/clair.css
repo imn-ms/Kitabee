@@ -815,6 +815,8 @@ body {
   color: #8d1818;
 }
 
+
+/* Aside infos */
 /* Aside infos */
 .contact-aside {
   background: #fff;
@@ -822,8 +824,7 @@ body {
   padding: 22px 22px 24px;
   border: 1px solid rgba(0,0,0,.02);
   box-shadow: 0 10px 30px rgba(0,0,0,.03);
-  position: sticky;
-  top: 90px;
+  /* plus de position sticky ou top ici */
 }
 
 .contact-aside h2 {
@@ -859,6 +860,8 @@ body {
   font-size: .78rem;
   line-height: 1.4;
 }
+
+
 
 /* Responsive */
 @media (max-width: 960px) {

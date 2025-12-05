@@ -16,13 +16,27 @@ if (empty($bookId)) {
     exit;
 }
 
+// 1bis. S'il est dans la wishlist, on le retire
+try {
+    $stmt = $pdo->prepare("
+        DELETE FROM user_wishlist
+        WHERE user_id = :uid AND google_book_id = :bid
+    ");
+    $stmt->execute([
+        ':uid' => $userId,
+        ':bid' => $bookId
+    ]);
+} catch (Throwable $e) {
+    // tu peux loguer l'erreur si tu as un système de logs
+}
+
 // 2. Récupérer les infos du livre via l'API Google Books
 $title    = null;
 $authors  = null;
 $thumb    = null;
 
 try {
-    if (isset($GOOGLE_API_KEY) && $GOOGLE_API_KEY) {
+    if (!empty($GOOGLE_API_KEY)) {
         $url = "https://www.googleapis.com/books/v1/volumes/" . urlencode($bookId) . "?key=" . urlencode($GOOGLE_API_KEY);
     } else {
         $url = "https://www.googleapis.com/books/v1/volumes/" . urlencode($bookId);
@@ -39,6 +53,7 @@ try {
         $thumb       = $info['imageLinks']['thumbnail'] ?? null;
     }
 } catch (Throwable $e) {
+    // silencieux, tu peux aussi loguer
 }
 
 // 3. insérer dans la table user_library
@@ -47,11 +62,11 @@ $stmt = $pdo->prepare("
     VALUES (:uid, :bid, :title, :authors, :thumb)
 ");
 $stmt->execute([
-    ':uid'    => $userId,
-    ':bid'    => $bookId,
-    ':title'  => $title,
-    ':authors'=> $authors,
-    ':thumb'  => $thumb,
+    ':uid'     => $userId,
+    ':bid'     => $bookId,
+    ':title'   => $title,
+    ':authors' => $authors,
+    ':thumb'   => $thumb,
 ]);
 
 // 4. revenir sur la page du livre

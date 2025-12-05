@@ -117,6 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
+<!-- Leaflet CSS (CDN) -->
+<link rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
 <section class="contact-wrapper">
   <div class="contact-grid">
 
@@ -128,10 +132,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <strong>Imane Moussaoui</strong> et <strong>Odessa Triollet-Pereira</strong>.
       </p>
       <p>
-      Dans le cadre de notre Licence, nous avons eu le choix entre plusieurs UE mineures, et avons choisi de suivre une UE de développement web avancé, car c’est un sujet qui nous intéresse pleinement.
-Pour approfondir nos connaissances dans ce domaine, notre encadrant <strong>Marc Lemaire</strong> nous a proposé de sélectionner un thème de notre choix et d’en proposer une solution web.
-Toutes deux passionnées par la lecture, et dans l’optique de retenir un thème avec peu de concurrence, nous avons jeté notre dévolu sur les livres.
-Nous avions à cœur de proposer un outil utile et ergonomique, pouvant plaire à tous les lecteurs.
+        Dans le cadre de notre Licence, nous avons eu le choix entre plusieurs UE mineures, et avons choisi de suivre une UE de développement web avancé, car c’est un sujet qui nous intéresse pleinement.
+        Pour approfondir nos connaissances dans ce domaine, notre encadrant <strong>Marc Lemaire</strong> nous a proposé de sélectionner un thème de notre choix et d’en proposer une solution web.
+        Toutes deux passionnées par la lecture, et dans l’optique de retenir un thème avec peu de concurrence, nous avons jeté notre dévolu sur les livres.
+        Nous avions à cœur de proposer un outil utile et ergonomique, pouvant plaire à tous les lecteurs.
+      </p>
       <p>
         C’est ainsi qu’est né <strong>Kitabee</strong> : un projet qui nous ressemble.
       </p>
@@ -238,7 +243,64 @@ Nous avions à cœur de proposer un outil utile et ergonomique, pouvant plaire �
       <small>Ce formulaire est réservé aux retours sur le projet Kitabee.</small>
     </aside>
 
+    <!-- Bloc carte -->
+    <div class="contact-map-block" style="grid-column: 1 / -1; margin-top: 2rem;">
+      <h2>Nous situer</h2>
+      <p>Retrouvez-nous facilement grâce à la carte ci-dessous :</p>
+
+      <div id="map" style="height: 400px; width: 100%; border-radius: 10px;"></div>
+    </div>
+
   </div>
 </section>
 
+<!-- Leaflet JS (CDN) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// On attend que le DOM soit prêt
+document.addEventListener('DOMContentLoaded', () => {
+    const mapElement = document.getElementById('map');
+    if (!mapElement) return;
+
+    // Coordonnées (exemple CY Cergy)
+    const latitude = 49.043;
+    const longitude = 2.0845;
+
+    // Création de la carte
+    const map = L.map(mapElement).setView([latitude, longitude], 13);
+
+    // Chargement tiles OSM
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Ajout d'un marqueur
+    L.marker([latitude, longitude])
+        .addTo(map)
+        .bindPopup('<strong>Kitabee – CYU</strong><br/>Nous sommes ici.')
+        .openPopup();
+
+    // Barre d’échelle
+    L.control.scale({metric: true, imperial: false}).addTo(map);
+
+    // Géolocalisation de l'utilisateur (optionnelle)
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const userLat = pos.coords.latitude;
+            const userLon = pos.coords.longitude;
+
+            L.marker([userLat, userLon])
+              .addTo(map)
+              .bindPopup("Votre position")
+              .openPopup();
+        }, err => {
+            console.log("Erreur géolocalisation :", err);
+        });
+    }
+});
+</script>
+
 <?php include 'include/footer.inc.php'; ?>
+

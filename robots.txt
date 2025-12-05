@@ -1,0 +1,49 @@
+# robots.txt — Kitabee
+# Empêche les robots d'accéder aux zones privées et aux fichiers sensibles
+# et autorise l'exploration du contenu public pour le referencement Google.
+
+User-agent: *
+# Autoriser les ressources nécessaires au rendu
+Allow: /
+Allow: /include/
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.png$
+Allow: /*.svg$
+Allow: /*.webp$
+
+# Bloquer les zones non publiques
+Disallow: /css/
+Disallow: /images/
+Disallow: /user/
+Disallow: /bibliothèque.php
+Disallow: /logout.php
+Disallow: /add_to_library.php
+Disallow: /add_to_wishlist.php
+Disallow: /activation.php
+Disallow: /check_login.php
+Disallow: /dashboard_user.php
+Disallow: /deconnexion.php
+Disallow: /mdp_oublie.php
+Disallow: /profil_user.php
+Disallow: /recommandations.php
+Disallow: /reset_mdp.php
+Disallow: /detail.php
+Disallow: /clubs_ajax.php
+Disallow: /construction.php
+Disallow: /cookie.php
+Disallow: /friends_ajax.php
+Disallow: /livre.php
+Disallow: /private.php
+
+
+# Bloquer les fichiers sensibles
+Disallow: /private/
+Disallow: /secret/
+Disallow: /README.txt
+Disallow: /classes/
+
+# Sitemap XML
+Sitemap: https://kitabee.alwaysdata.net/sitemap.xml
