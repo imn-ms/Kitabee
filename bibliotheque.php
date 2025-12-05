@@ -61,7 +61,7 @@ $wishlistBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <?php if (empty($libraryBooks)): ?>
       <p>Tu n’as encore rien ajouté à ta bibliothèque.</p>
-    <?php else: ?>
+      <?php else: ?>
       <div style="display:flex;flex-wrap:wrap;gap:20px;">
         <?php foreach ($libraryBooks as $book): ?>
           <?php
@@ -69,22 +69,25 @@ $wishlistBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $title    = $book['title'] ?: 'Titre inconnu';
             $thumb    = $book['thumbnail'] ?: "https://via.placeholder.com/128x180?text=Pas+d'image";
           ?>
-          <a
-            href="detail.php?id=<?= htmlspecialchars($googleId, ENT_QUOTES, 'UTF-8') ?>"
-            style="width:130px;text-align:center;text-decoration:none;color:inherit;"
-          >
-            <img
-              src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
-              alt="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
-              style="width:128px;display:block;margin:0 auto 10px;"
+          <div style="width:130px;text-align:center;">
+            <a
+              href="detail.php?id=<?= htmlspecialchars($googleId, ENT_QUOTES, 'UTF-8') ?>"
+              style="text-decoration:none;color:inherit;"
             >
-            <div style="font-size:.9rem;">
-              <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
-            </div>
-          </a>
+              <img
+                src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
+                alt="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
+                style="width:128px;display:block;margin:0 auto 10px;"
+              >
+              <div style="font-size:.9rem;margin-bottom:8px;">
+                <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
+              </div>
+            </a>
+          </div>
         <?php endforeach; ?>
       </div>
     <?php endif; ?>
+
 
     <!-- ========== SECTION 2 : WISHLIST (À LIRE) ========== -->
     <h2 style="margin-top:40px;">Ma wishlist (à lire)</h2>
@@ -122,12 +125,12 @@ $wishlistBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </button>
             </form>
 
-            <!-- Bouton : Retirer de la wishlist -->
+            <!-- Bouton : Retirer de la wishlist utile ou pas ????
             <form action="remove_from_wishlist.php" method="post">
               <input type="hidden" name="book_id" value="<?= htmlspecialchars($googleId, ENT_QUOTES, 'UTF-8') ?>">
               <button type="submit" class="btn-lire" style="font-size:.75rem;padding:4px 6px;">
                 ❌ Retirer
-              </button>
+              </button>-->
             </form>
           </div>
         <?php endforeach; ?>
