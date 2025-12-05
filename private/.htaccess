@@ -1,0 +1,3 @@
+# Bloque totalement l'accès depuis le web
+Order allow,deny
+Deny from all

@@ -3,6 +3,7 @@
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/secret/config.php';
 
 $pageTitle = "Inscription – Kitabee";
 $message = $error = null;
@@ -127,7 +128,6 @@ include __DIR__ . '/include/header.inc.php';
         </div>
       <?php endif; ?>
 
-      <?php if (!$message): ?>
       <form method="post" style="display:grid; gap:12px;">
 
         <label for="login">Identifiant</label>
@@ -145,7 +145,6 @@ include __DIR__ . '/include/header.inc.php';
         <button class="btn btn-primary" type="submit">Créer mon compte</button>
         <a class="btn btn-ghost" href="connexion.php">⬅ Déjà un compte ? Connexion</a>
       </form>
-      <?php endif; ?>
     </article>
   </div>
 </section>

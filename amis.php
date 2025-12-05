@@ -53,13 +53,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Créer la demande
                 $stmt = $pdo->prepare("
-                    INSERT INTO user_friends (user_id, friend_id, status, created_at)
-                    VALUES (:me, :them, 'pending', NOW())
+                    INSERT INTO user_friends (user_id, friend_id, requested_by, status, created_at)
+                    VALUES (:me, :them, :me, 'pending', NOW())
                 ");
                 $ok = $stmt->execute([
                     ':me'   => $userId,
                     ':them' => $targetId,
                 ]);
+
                 if ($ok) {
                     $message = "Demande d'ami envoyée ✔";
                 } else {

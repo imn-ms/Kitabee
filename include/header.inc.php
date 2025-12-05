@@ -8,9 +8,12 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 /* ========= UTILISATEUR ========= */
-$loggedUserId   = $_SESSION['user']  ?? null;
-$loggedLogin    = $_SESSION['login'] ?? null;
-$loggedAvatar   = $_SESSION['avatar'] ?? null;
+$loggedUserId     = $_SESSION['user']  ?? null;
+$loggedLogin      = $_SESSION['login'] ?? null;
+// ANCIEN : avatar fichier
+// $loggedAvatar   = $_SESSION['avatar'] ?? null;
+// NOUVEAU : simple booléen indiquant si un avatar existe en BDD
+$loggedHasAvatar  = $_SESSION['avatar_has'] ?? false;
 
 /* ========= DEMANDES D'AMIS EN ATTENTE ========= */
 $pendingFriendRequests = isset($pendingFriendRequests) ? (int)$pendingFriendRequests : 0;
@@ -201,7 +204,6 @@ function t(string $text): string {
       color: white;
     }
 
-    /* Badge pour notifications  */
     .notif-badge {
       display:inline-flex;
       min-width:18px;
@@ -216,7 +218,6 @@ function t(string $text): string {
       justify-content:center;
     }
 
-    /* Badge sur l'avatar */
     .profile-wrapper {
       position:relative;
       display:inline-block;
@@ -238,7 +239,6 @@ function t(string $text): string {
       <span class="brand-text">Kitabee</span>
     </a>
 
-    <!-- bouton pour mobile -->
     <button class="menu-toggle" aria-label="Ouvrir le menu">
       <span></span>
       <span></span>
@@ -262,11 +262,13 @@ function t(string $text): string {
       <?php if ($loggedUserId): ?>
         <div class="profile-wrapper">
           <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
-            <?php if (!empty($loggedAvatar)): ?>
-              <img src="/uploads/avatars/<?= htmlspecialchars($loggedAvatar, ENT_QUOTES, 'UTF-8') ?>"
+            <?php if ($loggedHasAvatar): ?>
+              <!-- NOUVEAU : avatar via script BLOB -->
+              <img src="/avatar.php?id=<?= (int)$loggedUserId ?>"
                    alt="Mon avatar"
                    class="profile-avatar">
             <?php else: ?>
+              <!-- Avatar par défaut : initiale -->
               <span class="profile-circle">
                 <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
               </span>

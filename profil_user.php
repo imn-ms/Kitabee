@@ -1,5 +1,5 @@
 <?php
-// profil_user.php — page de gestion du profil
+// profil_user.php — page de gestion du profil (avatar en BLOB dans la BD)
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -10,11 +10,16 @@ if (empty($_SESSION['user'])) {
 
 require_once __DIR__ . '/secret/database.php';
 
-$userId = $_SESSION['user'];
+$userId = (int)$_SESSION['user'];
 $currentLogin = $_SESSION['login'] ?? '';
 
-// Récupérer les infos actuelles de l'utilisateur 
-$stmt = $pdo->prepare("SELECT login, email, avatar, password FROM users WHERE id = :id LIMIT 1");
+// Récupérer les infos actuelles de l'utilisateur
+$stmt = $pdo->prepare("
+    SELECT login, email, avatar, avatar_type, password
+    FROM users
+    WHERE id = :id
+    LIMIT 1
+");
 $stmt->execute([':id' => $userId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -25,8 +30,15 @@ if (!$user) {
 $message = null;
 $error = null;
 
-// --- Traitement suppression de compte ---
+// Pour l'affichage de l'avatar (script dynamique)
+$hasAvatar  = !empty($user['avatar']);
+$avatarUrl  = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
+
+/* ---------------------------------------------
+   SUPPRESSION DE COMPTE
+----------------------------------------------*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
+
     $passwordDelete = $_POST['password_delete'] ?? '';
 
     if ($passwordDelete === '') {
@@ -34,73 +46,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
     } elseif (!password_verify($passwordDelete, $user['password'])) {
         $error = "Mot de passe incorrect. Suppression annulée.";
     } else {
-        // suppression de l’avatar 
-        if (!empty($user['avatar'])) {
-            $avatarPath = __DIR__ . '/uploads/avatars/' . $user['avatar'];
-            if (is_file($avatarPath)) {
-                @unlink($avatarPath);
-            }
-        }
 
-        // Suppression du compte
+        // Suppression du compte (l’avatar BLOB part avec la ligne)
         $stmtDel = $pdo->prepare("DELETE FROM users WHERE id = :id");
         $okDel = $stmtDel->execute([':id' => $userId]);
 
         if ($okDel) {
-            // Déconnexion propre
             session_unset();
             session_destroy();
             header('Location: index.php?account_deleted=1');
             exit;
         } else {
-            $error = "Impossible de supprimer votre compte pour le moment. Réessayez plus tard.";
+            $error = "Impossible de supprimer votre compte pour le moment.";
         }
     }
 }
 
-// --- Traitement mise à jour du profil ---
+/* ---------------------------------------------
+   MISE À JOUR PROFIL (login, mail, avatar…)
+----------------------------------------------*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
-    // 1. Récupérer les champs
-    $newLogin = trim($_POST['login'] ?? '');
-    $newEmail = trim($_POST['email'] ?? '');
-    $newPassword = $_POST['password'] ?? '';
+
+    $newLogin          = trim($_POST['login'] ?? '');
+    $newEmail          = trim($_POST['email'] ?? '');
+    $newPassword       = $_POST['password'] ?? '';
     $newPasswordConfirm = $_POST['password_confirm'] ?? '';
 
-    // Vérifs de base
     if ($newLogin === '' || $newEmail === '') {
         $error = "L'identifiant et l'e-mail ne peuvent pas être vides.";
     } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
         $error = "L'adresse e-mail n'est pas valide.";
-    } else {
-        // Vérifier si le nouveau login est déjà pris par un autre utilisateur
+    }
+
+    // vérifier login unique
+    if (!$error) {
         $stmt = $pdo->prepare("SELECT id FROM users WHERE login = :login AND id <> :id LIMIT 1");
         $stmt->execute([':login' => $newLogin, ':id' => $userId]);
         if ($stmt->fetch()) {
             $error = "Cet identifiant est déjà utilisé par un autre compte.";
         }
+    }
 
-        // Vérifier si le nouvel e-mail est déjà pris
-        if (!$error) {
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email AND id <> :id LIMIT 1");
-            $stmt->execute([':email' => $newEmail, ':id' => $userId]);
-            if ($stmt->fetch()) {
-                $error = "Cet e-mail est déjà utilisé par un autre compte.";
-            }
+    // vérifier email unique
+    if (!$error) {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email AND id <> :id LIMIT 1");
+        $stmt->execute([':email' => $newEmail, ':id' => $userId]);
+        if ($stmt->fetch()) {
+            $error = "Cet e-mail est déjà utilisé par un autre compte.";
         }
     }
 
-    // 4. Gestion de l'avatar
-    $avatarFilename = $user['avatar']; // on garde l'ancien par défaut
+    /* ---------------------------------------------------------
+       GESTION AVATAR (upload vers BLOB)
+    -----------------------------------------------------------*/
+    // On part de l’avatar actuel (BLOB) et du mime
+    $avatarData = $user['avatar'];
+    $avatarType = $user['avatar_type'] ?? null;
 
     if (!$error && isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
+
         $file = $_FILES['avatar'];
 
         if ($file['error'] === UPLOAD_ERR_OK) {
 
-            // Vérifier la taille (2 Mo max)
+            // Taille max 2 Mo
             if ($file['size'] > 2 * 1024 * 1024) {
                 $error = "L'image est trop lourde (max 2 Mo).";
             } else {
+
                 // Types autorisés
                 $allowedTypes = [
                     'image/jpeg' => 'jpg',
@@ -110,98 +123,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
                 ];
 
                 $detectedType = mime_content_type($file['tmp_name']);
+
                 if (!array_key_exists($detectedType, $allowedTypes)) {
-                    $error = "Format d'image non autorisé. Utilisez JPG, PNG, GIF ou WebP.";
+                    $error = "Format d'image non autorisé (JPG, PNG, GIF, WebP).";
                 } else {
-                    // Dossiers cibles
-                    $uploadRoot = __DIR__ . '/uploads';
-                    $uploadDir  = __DIR__ . '/uploads/avatars';
 
-                    // Créer /uploads si besoin
-                    if (!is_dir($uploadRoot)) {
-                        mkdir($uploadRoot, 0775, true);
-                    }
-                    // Créer /uploads/avatars si besoin
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0775, true);
-                    }
-
-                    // Vérifier que le dossier existe bien
-                    if (!is_dir($uploadDir)) {
-                        $error = "Le dossier d’upload n’existe pas côté serveur : " . $uploadDir;
+                    // Vérifier largeur / hauteur (en-tête fichier) — diapos
+                    $imgInfo = @getimagesize($file['tmp_name']);
+                    if ($imgInfo === false) {
+                        $error = "Le fichier n'est pas une image valide.";
                     } else {
-                        // Générer un nom unique
-                        $ext = $allowedTypes[$detectedType];
-                        $newName = 'avatar_' . $userId . '_' . time() . '.' . $ext;
-                        $destPath = $uploadDir . '/' . $newName;
+                        $width  = $imgInfo[0];
+                        $height = $imgInfo[1];
 
-                        // Vérifier qu'on peut écrire dedans
-                        if (!is_writable($uploadDir)) {
-                            $error = "Le dossier d’upload existe mais n’est pas accessible en écriture : " . $uploadDir;
-                        } else {
-                            if (!move_uploaded_file($file['tmp_name'], $destPath)) {
-                                $error = "Erreur lors du téléversement de l'avatar. Chemin tenté : " . $destPath;
-                            } else {
-                                $avatarFilename = $newName;
-                            }
+                        // Exemple de contrainte : 1024x1024 max
+                        if ($width > 1024 || $height > 1024) {
+                            $error = "L'image est trop grande (max 1024x1024).";
                         }
+                    }
+
+                    if (!$error) {
+                        // Lecture binaire du fichier pour stockage en BLOB
+                        $avatarData = file_get_contents($file['tmp_name']);
+                        $avatarType = $detectedType; // ex: image/png
                     }
                 }
             }
         } else {
-            $error = "Erreur lors de l'envoi du fichier (code " . $file['error'] . ").";
+            $error = "Erreur lors de l’envoi du fichier.";
         }
     }
 
-    // 5. Si tout est bon jusque-là, on met à jour
+    /* ---------------------------------------------------------
+       MISE À JOUR SQL
+    -----------------------------------------------------------*/
     if (!$error) {
-        // Cas 1 : mot de passe changé
+
+        // Avec changement de mot de passe
         if ($newPassword !== '' || $newPasswordConfirm !== '') {
+
             if ($newPassword !== $newPasswordConfirm) {
                 $error = "Les deux mots de passe ne correspondent pas.";
             } elseif (strlen($newPassword) < 6) {
                 $error = "Le mot de passe doit contenir au moins 6 caractères.";
             } else {
+
                 $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
+
                 $stmt = $pdo->prepare("
                     UPDATE users
-                    SET login = :login, email = :email, password = :password, avatar = :avatar
+                    SET login = :login,
+                        email = :email,
+                        password = :password,
+                        avatar = :avatar,
+                        avatar_type = :avatar_type
                     WHERE id = :id
                 ");
+
                 $ok = $stmt->execute([
-                    ':login' => $newLogin,
-                    ':email' => $newEmail,
-                    ':password' => $hashed,
-                    ':avatar' => $avatarFilename,
-                    ':id' => $userId
+                    ':login'       => $newLogin,
+                    ':email'       => $newEmail,
+                    ':password'    => $hashed,
+                    ':avatar'      => $avatarData,
+                    ':avatar_type' => $avatarType,
+                    ':id'          => $userId
                 ]);
             }
+
         } else {
-            // Cas 2 : on ne touche pas au mot de passe
+            // Sans modification du mot de passe
             $stmt = $pdo->prepare("
                 UPDATE users
-                SET login = :login, email = :email, avatar = :avatar
+                SET login = :login,
+                    email = :email,
+                    avatar = :avatar,
+                    avatar_type = :avatar_type
                 WHERE id = :id
             ");
+
             $ok = $stmt->execute([
-                ':login' => $newLogin,
-                ':email' => $newEmail,
-                ':avatar' => $avatarFilename,
-                ':id' => $userId
+                ':login'       => $newLogin,
+                ':email'       => $newEmail,
+                ':avatar'      => $avatarData,
+                ':avatar_type' => $avatarType,
+                ':id'          => $userId
             ]);
         }
 
         if (!$error) {
             if (!empty($ok)) {
-                // mettre à jour la session login si changé
+                // maj session
                 $_SESSION['login'] = $newLogin;
-                $_SESSION['avatar'] = $avatarFilename;
-                $message = "Profil mis à jour avec succès 👍";
+                // tu peux stocker juste un booléen si tu veux savoir s’il a un avatar
+                $_SESSION['avatar_has'] = !empty($avatarData);
 
-                // recharger les infos
-                $user['login'] = $newLogin;
-                $user['email'] = $newEmail;
-                $user['avatar'] = $avatarFilename;
+                // maj structure locale
+                $user['login']       = $newLogin;
+                $user['email']       = $newEmail;
+                $user['avatar']      = $avatarData;
+                $user['avatar_type'] = $avatarType;
+
+                $hasAvatar = !empty($avatarData);
+                $avatarUrl = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
+
+                $message = "Profil mis à jour avec succès 👍";
             } else {
                 $error = "Une erreur est survenue lors de la mise à jour.";
             }
@@ -230,37 +255,51 @@ include __DIR__ . '/include/header.inc.php';
       </div>
     <?php endif; ?>
 
-    <form method="post" enctype="multipart/form-data" style="display:grid; gap:14px; background:#fff; padding:20px; border-radius:14px; border:1px solid #e5e7eb;">
-      
+    <form method="post" enctype="multipart/form-data"
+          style="display:grid; gap:14px; background:#fff; padding:20px; border-radius:14px; border:1px solid #e5e7eb;">
+
+      <!-- Limite côté navigateur : 2 Mo (complète MAXFILESIZE des diapos) -->
+      <input type="hidden" name="MAX_FILE_SIZE" value="2097152">
+
       <!-- Avatar -->
       <div style="display:flex; align-items:center; gap:14px;">
-        <?php if (!empty($user['avatar'])): ?>
-          <img src="uploads/avatars/<?= htmlspecialchars($user['avatar'], ENT_QUOTES, 'UTF-8') ?>" alt="Avatar" style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
+        <?php if ($hasAvatar && $avatarUrl): ?>
+          <img src="<?= htmlspecialchars($avatarUrl, ENT_QUOTES, 'UTF-8') ?>"
+               alt="Avatar"
+               style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
         <?php else: ?>
-          <div style="width:70px; height:70px; border-radius:50%; background:#0078ff; display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px;">
+          <div style="width:70px; height:70px; border-radius:50%; background:#0078ff;
+                      display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px;">
             <?= strtoupper(substr($user['login'], 0, 1)) ?>
           </div>
         <?php endif; ?>
+
         <div>
           <label for="avatar">Changer d’avatar :</label><br>
           <input type="file" name="avatar" id="avatar" accept="image/*">
-          <p style="font-size: .8rem; color:#666;">Max 2 Mo. Formats autorisés : jpg, png, gif, webp.</p>
+          <p style="font-size:.8rem; color:#666;">
+            Max 2 Mo — JPG, PNG, GIF, WebP.
+          </p>
         </div>
       </div>
 
       <div>
         <label for="login">Identifiant</label>
-        <input id="login" name="login" type="text" required value="<?= htmlspecialchars($user['login'], ENT_QUOTES, 'UTF-8') ?>">
+        <input id="login" name="login" type="text" required
+               value="<?= htmlspecialchars($user['login'], ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
       <div>
         <label for="email">Adresse e-mail</label>
-        <input id="email" name="email" type="email" required value="<?= htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8') ?>">
+        <input id="email" name="email" type="email" required
+               value="<?= htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
       <hr>
 
-      <p style="font-size:.85rem; color:#666;">Laissez les champs ci-dessous vides si vous ne souhaitez pas modifier le mot de passe.</p>
+      <p style="font-size:.85rem; color:#666;">
+        Laissez les champs ci-dessous vides si vous ne souhaitez pas modifier le mot de passe.
+      </p>
 
       <div>
         <label for="password">Nouveau mot de passe</label>
@@ -278,14 +317,16 @@ include __DIR__ . '/include/header.inc.php';
       </div>
     </form>
 
-    <!--suppression du compte -->
+    <!-- suppression du compte -->
     <div style="margin-top:30px; padding:16px; border-radius:14px; border:1px solid #fecaca; background:#fef2f2;">
       <h2 style="margin-top:0; color:#b91c1c;">Supprimer mon compte</h2>
       <p style="font-size:.9rem; color:#7f1d1d;">
-        Cette action est <strong>définitive</strong> : toutes vos données liées à ce compte pourront être supprimées.
+        Cette action est <strong>définitive</strong> : toutes vos données liées à ce compte seront supprimées.
       </p>
 
-      <form method="post" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement votre compte ? Cette action est irréversible.');" style="display:grid; gap:10px; max-width:420px;">
+      <form method="post"
+            onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement votre compte ? Cette action est irréversible.');"
+            style="display:grid; gap:10px; max-width:420px;">
         <label for="password_delete">Pour confirmer, entrez votre mot de passe :</label>
         <input type="password" name="password_delete" id="password_delete" autocomplete="current-password" required>
 
