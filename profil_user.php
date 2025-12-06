@@ -10,8 +10,25 @@ if (empty($_SESSION['user'])) {
 
 require_once __DIR__ . '/secret/database.php';
 
-$userId = (int)$_SESSION['user'];
-$currentLogin = $_SESSION['login'] ?? '';
+$userId        = (int)$_SESSION['user'];
+$currentLogin  = $_SESSION['login'] ?? '';
+
+/**
+ * Vérifie la robustesse du mot de passe :
+ * - longueur >= 6
+ * - au moins 1 majuscule
+ * - au moins 1 minuscule
+ * - au moins 1 chiffre
+ * - au moins 1 caractère spécial
+ */
+function is_strong_password(string $pwd): bool {
+    if (strlen($pwd) < 6) return false;
+    if (!preg_match('/[A-Z]/', $pwd)) return false;
+    if (!preg_match('/[a-z]/', $pwd)) return false;
+    if (!preg_match('/[0-9]/', $pwd)) return false;
+    if (!preg_match('/[^A-Za-z0-9]/', $pwd)) return false;
+    return true;
+}
 
 // Récupérer les infos actuelles de l'utilisateur
 $stmt = $pdo->prepare("
@@ -28,11 +45,11 @@ if (!$user) {
 }
 
 $message = null;
-$error = null;
+$error   = null;
 
 // Pour l'affichage de l'avatar (script dynamique)
-$hasAvatar  = !empty($user['avatar']);
-$avatarUrl  = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
+$hasAvatar = !empty($user['avatar']);
+$avatarUrl = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
 
 /* ---------------------------------------------
    SUPPRESSION DE COMPTE
@@ -49,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
 
         // Suppression du compte (l’avatar BLOB part avec la ligne)
         $stmtDel = $pdo->prepare("DELETE FROM users WHERE id = :id");
-        $okDel = $stmtDel->execute([':id' => $userId]);
+        $okDel   = $stmtDel->execute([':id' => $userId]);
 
         if ($okDel) {
             session_unset();
@@ -67,9 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
 ----------------------------------------------*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
 
-    $newLogin          = trim($_POST['login'] ?? '');
-    $newEmail          = trim($_POST['email'] ?? '');
-    $newPassword       = $_POST['password'] ?? '';
+    $newLogin           = trim($_POST['login'] ?? '');
+    $newEmail           = trim($_POST['email'] ?? '');
+    $newPassword        = $_POST['password'] ?? '';
     $newPasswordConfirm = $_POST['password_confirm'] ?? '';
 
     if ($newLogin === '' || $newEmail === '') {
@@ -164,18 +181,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
 
             if ($newPassword !== $newPasswordConfirm) {
                 $error = "Les deux mots de passe ne correspondent pas.";
-            } elseif (strlen($newPassword) < 6) {
-                $error = "Le mot de passe doit contenir au moins 6 caractères.";
+            } elseif (!is_strong_password($newPassword)) {
+                $error = "Le mot de passe doit contenir au moins 6 caractères, avec au minimum une majuscule, une minuscule, un chiffre et un caractère spécial.";
             } else {
 
                 $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
 
                 $stmt = $pdo->prepare("
                     UPDATE users
-                    SET login = :login,
-                        email = :email,
-                        password = :password,
-                        avatar = :avatar,
+                    SET login       = :login,
+                        email       = :email,
+                        password    = :password,
+                        avatar      = :avatar,
                         avatar_type = :avatar_type
                     WHERE id = :id
                 ");
@@ -194,9 +211,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
             // Sans modification du mot de passe
             $stmt = $pdo->prepare("
                 UPDATE users
-                SET login = :login,
-                    email = :email,
-                    avatar = :avatar,
+                SET login       = :login,
+                    email       = :email,
+                    avatar      = :avatar,
                     avatar_type = :avatar_type
                 WHERE id = :id
             ");
@@ -213,8 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
         if (!$error) {
             if (!empty($ok)) {
                 // maj session
-                $_SESSION['login'] = $newLogin;
-                // tu peux stocker juste un booléen si tu veux savoir s’il a un avatar
+                $_SESSION['login']      = $newLogin;
                 $_SESSION['avatar_has'] = !empty($avatarData);
 
                 // maj structure locale
@@ -298,7 +314,8 @@ include __DIR__ . '/include/header.inc.php';
       <hr>
 
       <p style="font-size:.85rem; color:#666;">
-        Laissez les champs ci-dessous vides si vous ne souhaitez pas modifier le mot de passe.
+        Laissez les champs ci-dessous vides si vous ne souhaitez pas modifier le mot de passe.<br>
+        Le nouveau mot de passe doit contenir au moins 6 caractères, avec au minimum une majuscule, une minuscule, un chiffre et un caractère spécial.
       </p>
 
       <div>

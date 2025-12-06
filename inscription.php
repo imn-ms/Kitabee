@@ -8,6 +8,23 @@ require_once __DIR__ . '/secret/config.php';
 $pageTitle = "Inscription – Kitabee";
 $message = $error = null;
 
+/**
+ * Vérifie la robustesse du mot de passe :
+ * - longueur >= 6
+ * - au moins 1 majuscule
+ * - au moins 1 minuscule
+ * - au moins 1 chiffre
+ * - au moins 1 caractère spécial
+ */
+function is_strong_password(string $pwd): bool {
+    if (strlen($pwd) < 6) return false;
+    if (!preg_match('/[A-Z]/', $pwd)) return false;
+    if (!preg_match('/[a-z]/', $pwd)) return false;
+    if (!preg_match('/[0-9]/', $pwd)) return false;
+    if (!preg_match('/[^A-Za-z0-9]/', $pwd)) return false;
+    return true;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $login    = trim($_POST['login'] ?? '');
     $email    = trim($_POST['email'] ?? '');
@@ -19,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Veuillez remplir tous les champs.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Adresse e-mail invalide.";
+    } elseif (!is_strong_password($password)) {
+        $error = "Le mot de passe doit contenir au moins 6 caractères, avec au minimum une majuscule, une minuscule, un chiffre et un caractère spécial.";
     } elseif ($captchaResponse === '') {
         $error = "Veuillez valider le CAPTCHA.";
     } else {
@@ -71,10 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ');
 
                     $ok = $stmt->execute([
-                        ':login' => $login,
-                        ':email' => $email,
+                        ':login'    => $login,
+                        ':email'    => $email,
                         ':password' => $hashedPassword,
-                        ':token' => $token
+                        ':token'    => $token
                     ]);
 
                     if ($ok) {
@@ -138,6 +157,9 @@ include __DIR__ . '/include/header.inc.php';
 
         <label for="password">Mot de passe</label>
         <input id="password" name="password" type="password" required>
+        <small style="font-size:.8rem;color:#666;">
+          Min. 6 caractères, avec au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.
+        </small>
 
         <!-- Widget reCAPTCHA -->
         <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars(RECAPTCHA_SITE_KEY) ?>"></div>

@@ -31,15 +31,44 @@ if ($apiResponse) {
 ?>
 
 <!-- ===== HERO ===== -->
-<section class="hero">
-  <div class="hero-overlay"></div>
-  <div class="container hero-content">
-    <h1 class="hero-title">Kitabee 📚</h1>
-    <p class="hero-subtitle">Gérez votre bibliothèque et découvrez des lectures qui vous ressemblent.</p>
-    <div class="hero-actions">
+<section class="hero"
+  style="
+    position: relative;
+    background-image: url('/images/hero.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    padding: 120px 0;
+  "
+>
+  <!-- Overlay sombre -->
+  <div style="
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.45);
+  "></div>
+
+  <!-- Contenu -->
+  <div class="container hero-content"
+       style="position:relative; z-index:2; text-align:left;">
+
+    <!-- Titre aligné à gauche -->
+    <h1 class="hero-title" style="color:#fff; margin-left:20px;">
+      Kitabee 📚
+    </h1>
+
+    <!-- Phrase alignée à gauche -->
+    <p class="hero-subtitle" style="color:#fff; margin-left:20px;">
+      Gérez votre bibliothèque et découvrez des lectures qui vous ressemblent.
+    </p>
+
+    <!-- Boutons -->
+    <div class="hero-actions" style="margin-top:20px;">
       <a href="#catalogue" class="btn btn-primary">Parcourir les livres</a>
       <a href="#features" class="btn btn-ghost">En savoir plus</a>
     </div>
+
   </div>
 </section>
 
@@ -88,69 +117,30 @@ if ($apiResponse) {
 <?php
 // === Sélection dynamique Google Books ===
 
-// Liste élargie de thèmes littéraires variés
 $topics = [
-  // Genres littéraires généraux
-  'subject:fiction',
-  'subject:romance',
-  'subject:history',
-  'subject:fantasy',
-  'subject:thriller',
-  'subject:mystery',
-  'subject:biography',
-  'subject:poetry',
-  'subject:drama',
-  'subject:literary',
-  'subject:classic',
+  'subject:fiction', 'subject:romance', 'subject:history', 'subject:fantasy',
+  'subject:thriller', 'subject:mystery', 'subject:biography', 'subject:poetry',
+  'subject:drama', 'subject:literary', 'subject:classic',
 
-  // Catégories thématiques
-  'subject:science',
-  'subject:philosophy',
-  'subject:psychology',
-  'subject:education',
-  'subject:religion',
-  'subject:travel',
-  'subject:art',
-  'subject:music',
-  'subject:architecture',
-  'subject:design',
-  'subject:photography',
+  'subject:science', 'subject:philosophy', 'subject:psychology',
+  'subject:education', 'subject:religion', 'subject:travel', 'subject:art',
+  'subject:music', 'subject:architecture', 'subject:design', 'subject:photography',
 
-  // Types de lecteurs
-  'subject:juvenile',
-  'subject:young adult',
-  'subject:children',
+  'subject:juvenile', 'subject:young adult', 'subject:children',
 
-  // Bandes dessinées, culture pop
-  'subject:comics',
-  'subject:graphic novels',
-  'subject:manga',
+  'subject:comics', 'subject:graphic novels', 'subject:manga',
 
-  // Vie pratique et société
-  'subject:cooking',
-  'subject:health',
-  'subject:wellness',
-  'subject:business',
-  'subject:technology',
-  'subject:politics',
-  'subject:society',
-  'subject:law',
+  'subject:cooking', 'subject:health', 'subject:wellness', 'subject:business',
+  'subject:technology', 'subject:politics', 'subject:society', 'subject:law',
   'subject:economics',
 
-  // Divers pour la variété
-  'subject:environment',
-  'subject:nature',
-  'subject:sport',
-  'subject:adventure',
-  'subject:science fiction',
-  'subject:horror'
+  'subject:environment', 'subject:nature', 'subject:sport', 'subject:adventure',
+  'subject:science fiction', 'subject:horror'
 ];
 
-// Choix aléatoire d’un thème à chaque rechargement
 $topic = $topics[array_rand($topics)];
-$start = rand(0, 25); // petit décalage pour varier les résultats
+$start = rand(0, 25);
 
-// Appel à l’API Google Books
 $googleBooks = [];
 $apiUrl = "https://www.googleapis.com/books/v1/volumes?q={$topic}&langRestrict=fr&startIndex={$start}&maxResults=6&key={$GOOGLE_API_KEY}";
 $apiResponse = @file_get_contents($apiUrl);
@@ -162,7 +152,6 @@ if ($apiResponse) {
   }
 }
 
-// Nom lisible du thème pour le titre
 $topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $topic)[1] ?? 'inconnu'));
 ?>
 
@@ -179,7 +168,7 @@ $topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $top
       </div>
     <?php else: ?>
       <div class="grid">
-        <?php foreach ($googleBooks as $book): 
+        <?php foreach ($googleBooks as $book):
           $id    = $book['id'] ?? '';
           $info  = $book['volumeInfo'] ?? [];
           $title = $info['title'] ?? 'Titre inconnu';
@@ -201,9 +190,8 @@ $topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $top
   </div>
 </section>
 
-
 <!-- ===== Bandeau cookies ===== -->
-<div id="cookieBanner" class="cookie-banner" role="dialog" aria-live="polite" aria-label="Bandeau de consentement aux cookies">
+<div id="cookieBanner" class="cookie-banner" role="dialog" aria-live="polite">
   <div class="inner">
     <p>
       Nous utilisons des cookies <strong>non indispensables</strong> pour améliorer l’apparence (thème, dernière visite).
@@ -256,36 +244,6 @@ input.addEventListener('input', () => {
       .catch(() => suggestions.innerHTML = '');
   }, 300);
 });
-
-// ===== Slideshow mini =====
-(function() {
-  const container = document.getElementById('slideshow1');
-  if (!container) return;
-  const slides = container.querySelectorAll('.mySlide');
-  const prev = container.querySelector('.prev');
-  const next = container.querySelector('.next');
-  const dotsContainer = container.querySelector('.dots');
-  let current = 0;
-
-  slides.forEach((_, i) => {
-    const b = document.createElement('button');
-    b.className = 'dot' + (i === 0 ? ' active' : '');
-    b.addEventListener('click', () => showSlide(i));
-    dotsContainer.appendChild(b);
-  });
-  const dots = dotsContainer.querySelectorAll('.dot');
-
-  function showSlide(i) {
-    slides[current].classList.remove('active');
-    dots[current].classList.remove('active');
-    current = (i + slides.length) % slides.length;
-    slides[current].classList.add('active');
-    dots[current].classList.add('active');
-  }
-
-  prev.addEventListener('click', () => showSlide(current - 1));
-  next.addEventListener('click', () => showSlide(current + 1));
-})();
 </script>
 
 <?php include("include/footer.inc.php"); ?>

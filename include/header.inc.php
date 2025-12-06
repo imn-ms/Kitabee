@@ -10,6 +10,10 @@ if (session_status() === PHP_SESSION_NONE) {
 /* ========= UTILISATEUR ========= */
 $loggedUserId     = $_SESSION['user']  ?? null;
 $loggedLogin      = $_SESSION['login'] ?? null;
+/**
+ * Doit être mis à jour dans profil_user.php :
+ * $_SESSION['avatar_has'] = !empty($avatarData);
+ */
 $loggedHasAvatar  = $_SESSION['avatar_has'] ?? false;
 
 /* ========= DEMANDES D'AMIS EN ATTENTE ========= */
@@ -30,9 +34,12 @@ if ($loggedUserId && isset($pdo) && $pendingFriendRequests === 0) {
 }
 
 /* ========= NOTIFICATIONS CLUBS ========= */
-$pendingClubInvites = 0;
+$pendingClubInvites  = 0;
+$pendingClubMessages = 0;
+
 if ($loggedUserId && isset($pdo)) {
     try {
+        // invitations de clubs
         $stmtClub = $pdo->prepare("
             SELECT COUNT(*)
             FROM notifications
@@ -42,13 +49,26 @@ if ($loggedUserId && isset($pdo)) {
         ");
         $stmtClub->execute([':uid' => (int)$loggedUserId]);
         $pendingClubInvites = (int)$stmtClub->fetchColumn();
+
+        // messages de clubs non lus
+        $stmtMsg = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE user_id = :uid
+              AND type = 'club_message'
+              AND is_read = 0
+        ");
+        $stmtMsg->execute([':uid' => (int)$loggedUserId]);
+        $pendingClubMessages = (int)$stmtMsg->fetchColumn();
+
     } catch (Throwable $e) {
-        $pendingClubInvites = 0;
+        $pendingClubInvites  = 0;
+        $pendingClubMessages = 0;
     }
 }
 
 /* ========= THEME JOUR / NUIT ========= */
-$cookieConsent    = $_COOKIE['cookie_consent'] ?? null;
+$cookieConsent     = $_COOKIE['cookie_consent'] ?? null;
 $allowNonEssential = ($cookieConsent === 'accepted');
 $isPostToggleStyle = isset($_POST['toggle_style']);
 
@@ -77,8 +97,11 @@ $last_visit = $_COOKIE['last_visit'] ?? null;
 if ($allowNonEssential) {
     $last_visit = date('d/m/Y H:i:s');
     setcookie('last_visit', $last_visit, [
-        'expires'  => time() + 365*24*60*60,
-        'path'     => '/'
+        'expires'  => time() + 365 * 24 * 60 * 60,
+        'path'     => '/',
+        'secure'   => false,
+        'httponly' => false,
+        'samesite' => 'Lax',
     ]);
 }
 ?>
@@ -143,46 +166,58 @@ if ($allowNonEssential) {
 
     <!-- Navigation -->
     <nav class="main-nav">
-      <a href="/bibliotheque.php" class="chip">Bibliothèque</a>
-      <a href="/actualites.php" class="chip">Actualités</a>
-      <a href="/recommandations.php" class="chip">Recommandations</a>
-      <a href="/contact.php" class="chip">Contact</a>
+      <!-- ⚠️ plus de class="chip" ici -->
+      <a href="/bibliotheque.php">Bibliothèque</a>
+      <a href="/actualites.php">Actualités</a>
+      <a href="/recommandations.php">Recommandations</a>
+      <a href="/contact.php">Contact</a>
     </nav>
 
-    <!-- Compte utilisateur -->
-    <?php if ($loggedUserId): ?>
-      <div class="profile-wrapper">
-        <a href="/dashboard_user.php" class="profile-badge">
-          <?php if ($loggedHasAvatar): ?>
-            <img src="/avatar.php?id=<?= (int)$loggedUserId ?>" class="profile-avatar">
-          <?php else: ?>
-            <span class="profile-circle"><?= strtoupper(substr($loggedLogin ?? 'U',0,1)) ?></span>
+    <!-- Compte utilisateur + actions droite -->
+    <div class="actions-right">
+      <?php if ($loggedUserId): ?>
+        <div class="profile-wrapper">
+          <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
+            <?php if ($loggedHasAvatar): ?>
+              <!-- Avatar présent : affichage via script BLOB -->
+              <img src="/avatar.php?id=<?= (int)$loggedUserId ?>"
+                   alt="Mon avatar"
+                   class="profile-avatar">
+            <?php else: ?>
+              <!-- Pas d’avatar : initiale -->
+              <span class="profile-circle">
+                <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
+              </span>
+            <?php endif; ?>
+          </a>
+
+          <?php
+            $totalNotifs = $pendingFriendRequests + $pendingClubInvites + $pendingClubMessages;
+            if ($totalNotifs > 0):
+          ?>
+            <span class="notif-badge avatar-notif-badge"><?= $totalNotifs ?></span>
           <?php endif; ?>
-        </a>
+        </div>
+      <?php else: ?>
+        <!-- Connexion garde le style .chip -->
+        <a href="/connexion.php" class="chip">Connexion</a>
+      <?php endif; ?>
 
-        <?php $totalNotifs = $pendingFriendRequests + $pendingClubInvites; ?>
-        <?php if ($totalNotifs > 0): ?>
-          <span class="notif-badge avatar-notif-badge"><?= $totalNotifs ?></span>
-        <?php endif; ?>
-      </div>
-    <?php else: ?>
-      <a href="/connexion.php" class="chip">Connexion</a>
-    <?php endif; ?>
+      <!-- Thème -->
+      <form method="post" class="theme-toggle" style="display:inline;">
+        <button type="submit" name="toggle_style" class="chip">
+          <?= ($style === 'jour') ? "🌙" : "☀️" ?>
+        </button>
+      </form>
 
-    <!-- Thème -->
-    <form method="post" class="theme-toggle" style="display:inline;">
-      <button type="submit" name="toggle_style" class="chip">
-        <?= ($style === 'jour') ? "Mode nuit" : "Mode jour" ?>
+      <!-- Bouton de traduction Google -->
+      <button id="custom-translate-btn"
+              onclick="toggleTranslate();"
+              class="chip"
+              style="margin-left:8px;">
+        🌍
       </button>
-    </form>
-
-    <!-- Bouton de traduction Google -->
-    <button id="custom-translate-btn"
-            onclick="toggleTranslate();"
-            class="chip"
-            style="margin-left:8px;">
-      🌍 Langue
-    </button>
+    </div>
 
   </div>
 
@@ -204,7 +239,7 @@ if ($allowNonEssential) {
 
   function toggleTranslate() {
     const el = document.getElementById('google_translate_element');
-    el.style.display = (el.style.display === 'none' || el.style.display === "") 
+    el.style.display = (el.style.display === 'none' || el.style.display === "")
       ? 'block'
       : 'none';
   }

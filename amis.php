@@ -17,7 +17,6 @@ $pageTitle = "Mes amis – Kitabee";
 $message = null;
 $error   = null;
 
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -120,11 +119,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    // 4) Supprimer un ami (relation acceptée)
+    if ($action === 'remove_friend') {
+        $friendId = isset($_POST['friend_id']) ? (int)$_POST['friend_id'] : 0;
+
+        if ($friendId > 0 && $friendId !== $userId) {
+            $stmt = $pdo->prepare("
+                DELETE FROM user_friends
+                WHERE ((user_id = :me AND friend_id = :friend)
+                    OR (user_id = :friend AND friend_id = :me))
+                  AND status = 'accepted'
+            ");
+            $ok = $stmt->execute([
+                ':me'     => $userId,
+                ':friend' => $friendId,
+            ]);
+
+            if ($ok && $stmt->rowCount() > 0) {
+                $message = "Cet ami a bien été supprimé.";
+            } else {
+                $error = "Impossible de supprimer cet ami.";
+            }
+        } else {
+            $error = "Ami invalide.";
+        }
+    }
 }
 
 // RECHERCHE D'UTILISATEURS
-
-$searchTerm = trim($_GET['q'] ?? '');
+$searchTerm    = trim($_GET['q'] ?? '');
 $searchResults = [];
 
 if ($searchTerm !== '') {
@@ -144,7 +168,6 @@ if ($searchTerm !== '') {
 }
 
 // DEMANDES REÇUES
-
 $stmt = $pdo->prepare("
     SELECT uf.id, uf.user_id, uf.created_at,
            u.login, u.avatar
@@ -158,7 +181,6 @@ $stmt->execute([':me' => $userId]);
 $incomingRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // MES AMIS (relations acceptées)
-
 $stmt = $pdo->prepare("
     SELECT
       CASE 
@@ -227,7 +249,8 @@ include __DIR__ . '/include/header.inc.php';
               <li style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
                 <div style="display:flex; align-items:center; gap:8px;">
                   <?php if (!empty($u['avatar'])): ?>
-                    <img src="uploads/avatars/<?= htmlspecialchars($u['avatar'], ENT_QUOTES, 'UTF-8') ?>"
+                    <!-- avatar depuis BDD via avatar.php -->
+                    <img src="avatar.php?id=<?= (int)$u['id'] ?>"
                          alt=""
                          style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
                   <?php else: ?>
@@ -264,7 +287,7 @@ include __DIR__ . '/include/header.inc.php';
             <li style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; border-radius:10px; background:#fefce8;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <?php if (!empty($req['avatar'])): ?>
-                  <img src="uploads/avatars/<?= htmlspecialchars($req['avatar'], ENT_QUOTES, 'UTF-8') ?>"
+                  <img src="avatar.php?id=<?= (int)$req['user_id'] ?>"
                        alt=""
                        style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
                 <?php else: ?>
@@ -307,17 +330,30 @@ include __DIR__ . '/include/header.inc.php';
       <?php else: ?>
         <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;">
           <?php foreach ($friends as $f): ?>
-            <li style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
-              <?php if (!empty($f['avatar'])): ?>
-                <img src="uploads/avatars/<?= htmlspecialchars($f['avatar'], ENT_QUOTES, 'UTF-8') ?>"
-                     alt=""
-                     style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
-              <?php else: ?>
-                <div style="width:36px; height:36px; border-radius:50%; background:#3b82f6; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold;">
-                  <?= strtoupper(substr($f['login'], 0, 1)) ?>
-                </div>
-              <?php endif; ?>
-              <div style="font-weight:600;"><?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?></div>
+            <li style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <?php if (!empty($f['avatar'])): ?>
+                  <img src="avatar.php?id=<?= (int)$f['friend_id'] ?>"
+                       alt=""
+                       style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+                <?php else: ?>
+                  <div style="width:36px; height:36px; border-radius:50%; background:#3b82f6; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                    <?= strtoupper(substr($f['login'], 0, 1)) ?>
+                  </div>
+                <?php endif; ?>
+                <div style="font-weight:600;"><?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?></div>
+              </div>
+
+              <!-- Bouton supprimer ami -->
+              <form method="post"
+                    onsubmit="return confirm('Supprimer cet ami ?');"
+                    style="margin-left:auto;">
+                <input type="hidden" name="action" value="remove_friend">
+                <input type="hidden" name="friend_id" value="<?= (int)$f['friend_id'] ?>">
+                <button type="submit" class="btn btn-ghost" style="color:#dc2626;">
+                  Supprimer
+                </button>
+              </form>
             </li>
           <?php endforeach; ?>
         </ul>

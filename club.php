@@ -21,7 +21,7 @@ $fm = new FriendManager($pdo, $userId);
 $clubId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 
-//CAS 1 : PAS D'ID → LISTE DES CLUBS + INVITATIONS
+// CAS 1 : PAS D'ID → LISTE DES CLUBS + INVITATIONS
 
 if ($clubId <= 0) {
     $pageTitle = "Mes clubs de lecture – Kitabee";
@@ -149,6 +149,35 @@ if ($clubId <= 0) {
     /* ----- 4) Récupérer la liste des clubs dont je suis membre ----- */
     $clubs = $cm->getMyClubs();
 
+    /* ----- 5) Nombre de messages de clubs non lus par club ----- */
+    $unreadClubMessagesByClub = [];
+    if ($clubs) {
+        $clubIds = array_column($clubs, 'id'); // [1, 2, 3, ...]
+        $placeholders = implode(',', array_fill(0, count($clubIds), '?'));
+
+        $sqlUnread = "
+            SELECT club_id, COUNT(*) AS unread_count
+            FROM notifications
+            WHERE user_id = ?
+              AND type = 'club_message'
+              AND is_read = 0
+              AND club_id IN ($placeholders)
+            GROUP BY club_id
+        ";
+
+        try {
+            $stmtUnread = $pdo->prepare($sqlUnread);
+            $params = array_merge([$userId], $clubIds);
+            $stmtUnread->execute($params);
+
+            while ($row = $stmtUnread->fetch(PDO::FETCH_ASSOC)) {
+                $unreadClubMessagesByClub[(int)$row['club_id']] = (int)$row['unread_count'];
+            }
+        } catch (Throwable $e) {
+            $unreadClubMessagesByClub = [];
+        }
+    }
+
     include __DIR__ . '/include/header.inc.php';
     ?>
     <section class="section">
@@ -241,6 +270,10 @@ if ($clubId <= 0) {
           <?php else: ?>
             <div class="club-grid">
               <?php foreach ($clubs as $club): ?>
+                <?php
+                  $clubIdRow = (int)$club['id'];
+                  $unread = $unreadClubMessagesByClub[$clubIdRow] ?? 0;
+                ?>
                 <article class="club-card">
                   <div class="club-main">
                     <div class="club-icon">📖</div>
@@ -266,6 +299,12 @@ if ($clubId <= 0) {
                         <?php endif; ?>
                         • Créé le <?= htmlspecialchars(date('d/m/Y', strtotime($club['created_at'])), ENT_QUOTES, 'UTF-8') ?>
                       </p>
+
+                      <?php if ($unread > 0): ?>
+                        <p class="club-meta" style="color:#b91c1c; font-size:.85rem; margin-top:3px;">
+                          🔔 <?= $unread ?> nouveau<?= $unread > 1 ? 'x' : '' ?> message<?= $unread > 1 ? 's' : '' ?> dans ce club
+                        </p>
+                      <?php endif; ?>
                     </div>
                   </div>
 
@@ -532,7 +571,7 @@ if ($clubId <= 0) {
 }
 
 
-//CAS 2 : ID PRÉSENT → DÉTAIL DU CLUB
+// CAS 2 : ID PRÉSENT → DÉTAIL DU CLUB
 
 
 // --- Gestion "Supprimer le club" (owner uniquement) ---
@@ -576,6 +615,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['club_message'])) {
         if (!$ok) {
             $messageError = "Impossible d'envoyer le message. Réessayez.";
         } else {
+            // 🔔 CRÉATION DES NOTIFS 'club_message' POUR LES AUTRES MEMBRES
+            try {
+                // Récupérer tous les membres du club sauf l'auteur
+                $stmtMembers = $pdo->prepare("
+                    SELECT user_id
+                    FROM book_club_members
+                    WHERE club_id = :cid
+                      AND user_id <> :uid
+                ");
+                $stmtMembers->execute([
+                    ':cid' => $clubId,
+                    ':uid' => $userId,
+                ]);
+                $members = $stmtMembers->fetchAll(PDO::FETCH_COLUMN);
+
+                if ($members) {
+                    // Petit aperçu du message pour la notif
+                    $preview = mb_substr($content, 0, 120);
+                    if (mb_strlen($content) > 120) {
+                        $preview .= '…';
+                    }
+
+                    $stmtNotif = $pdo->prepare("
+                        INSERT INTO notifications (user_id, from_user_id, club_id, type, content, is_read, created_at)
+                        VALUES (:uid, :from_uid, :club_id, 'club_message', :content, 0, NOW())
+                    ");
+
+                    foreach ($members as $memberId) {
+                        $stmtNotif->execute([
+                            ':uid'      => (int)$memberId,
+                            ':from_uid' => $userId,
+                            ':club_id'  => $clubId,
+                            ':content'  => $preview,
+                        ]);
+                    }
+                }
+            } catch (Throwable $e) {
+                // en cas d'erreur sur les notifs, on ne bloque pas l'envoi du message
+            }
+
             // Éviter le renvoi du formulaire en refresh
             header("Location: club.php?id=" . $clubId);
             exit;
@@ -602,6 +681,44 @@ if (!$club) {
     exit;
 }
 
+/* 🔔 Nombre de messages non lus pour CE club (avant de les marquer comme lus) */
+$unreadMessagesThisClub = 0;
+try {
+    $stmtCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE user_id = :uid
+          AND club_id = :cid
+          AND type = 'club_message'
+          AND is_read = 0
+    ");
+    $stmtCount->execute([
+        ':uid' => $userId,
+        ':cid' => $clubId,
+    ]);
+    $unreadMessagesThisClub = (int)$stmtCount->fetchColumn();
+} catch (Throwable $e) {
+    $unreadMessagesThisClub = 0;
+}
+
+/* 🔔 MARQUER LES NOTIFS 'club_message' COMME LUES POUR CE CLUB */
+try {
+    $stmtReadMsg = $pdo->prepare("
+        UPDATE notifications
+        SET is_read = 1
+        WHERE user_id = :uid
+          AND club_id = :cid
+          AND type = 'club_message'
+          AND is_read = 0
+    ");
+    $stmtReadMsg->execute([
+        ':uid' => $userId,
+        ':cid' => $clubId,
+    ]);
+} catch (Throwable $e) {
+    // si ça plante, on ignore, ce n'est pas bloquant
+}
+
 // === Données pour l'affichage ===
 
 // membres du club
@@ -609,7 +726,7 @@ $members = $cm->getMembers($clubId);
 $memberIds = array_column($members, 'id');
 
 // amis (pour les invitations)
-$friends       = $fm->getFriends();
+$friends          = $fm->getFriends();
 $invitableFriends = array_filter($friends, function ($f) use ($memberIds) {
     return !in_array((int)$f['id'], $memberIds, true);
 });
@@ -671,6 +788,13 @@ include __DIR__ . '/include/header.inc.php';
             <?php endif; ?>
             • Créé le <?= htmlspecialchars(date('d/m/Y', strtotime($club['created_at'])), ENT_QUOTES, 'UTF-8') ?>
           </p>
+
+          <?php if ($unreadMessagesThisClub > 0): ?>
+            <p style="margin:6px 0 0; font-size:.85rem; color:#b91c1c;">
+              🔔 Vous aviez <?= $unreadMessagesThisClub ?> nouveau<?= $unreadMessagesThisClub > 1 ? 'x' : '' ?>
+              message<?= $unreadMessagesThisClub > 1 ? 's' : '' ?> non lu<?= $unreadMessagesThisClub > 1 ? 's' : '' ?> dans ce club.
+            </p>
+          <?php endif; ?>
 
           <?php if ($leaveError): ?>
             <p style="margin-top:8px; font-size:.85rem; color:#dc2626;">

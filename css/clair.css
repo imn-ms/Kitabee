@@ -61,8 +61,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
 }
 
-/* lien nav style “pastille” */
-.main-nav a,
+/* style “pastille” UNIQUEMENT pour .chip (boutons, etc.) */
 .chip {
   padding: .38rem .7rem;
   border: 1px solid rgba(0,0,0,.04);
@@ -72,11 +71,61 @@ a { color: inherit; text-decoration: none; }
   transition: background .15s ease-out, box-shadow .15s ease-out;
   opacity: .9;
 }
-.main-nav a:hover,
 .chip:hover {
   background: rgba(95,127,95,.07);
   box-shadow: 0 3px 14px rgba(0,0,0,.04);
   opacity: 1;
+}
+
+/* Liens du menu principal : texte + trait vert au survol / clic */
+.main-nav a {
+  position: relative;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ⚠️ si dans le HTML tu as encore class="chip" sur les liens du menu,
+   on écrase explicitement le style pastille ici */
+.main-nav a.chip {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.main-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 0;
+  height: 2px;
+  background: #4CAF50; /* vert */
+  transition: width .2s ease;
+}
+
+.main-nav a:hover::after,
+.main-nav a:active::after,
+.main-nav a:focus-visible::after {
+  width: 100%;
+}
+
+.main-nav a:hover {
+  color: var(--brand-dark);
+}
+
+/* thème sombre pour la nav */
+body.nuit .main-nav a {
+  color: #f3f4f6;
+}
+body.nuit .main-nav a:hover {
+  color: #ffffff;
 }
 
 /* bouton menu mobile */
@@ -101,7 +150,7 @@ a { color: inherit; text-decoration: none; }
   border-radius: 999px;
 }
 
-/* ===== header / nav ===== */
+/* ===== header / nav (doublon mais cohérent) ===== */
 .site-header {
   position: sticky;
   top: 0;
@@ -132,6 +181,7 @@ a { color: inherit; text-decoration: none; }
   gap: 20px;
 }
 
+/* style pastille pour .chip (déjà défini plus haut, laissé pour compat) */
 .chip {
   padding: .38rem .7rem;
   border: 1px solid rgba(0,0,0,.08);
@@ -184,7 +234,7 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 3px 10px rgba(0,0,0,0.15);
 }
 
-/* bouton menu mobile */
+/* bouton menu mobile (bis) */
 .menu-toggle {
   display: none;
   width: 38px;
@@ -267,10 +317,10 @@ a { color: inherit; text-decoration: none; }
     padding: 10px 20px 14px;
     display: none;
     gap: 10px;
+    flex-wrap: wrap;
   }
   .main-nav.is-open {
     display: flex;
-    flex-wrap: wrap;
   }
 }
 
@@ -815,8 +865,6 @@ body {
   color: #8d1818;
 }
 
-
-/* Aside infos */
 /* Aside infos */
 .contact-aside {
   background: #fff;
@@ -824,7 +872,6 @@ body {
   padding: 22px 22px 24px;
   border: 1px solid rgba(0,0,0,.02);
   box-shadow: 0 10px 30px rgba(0,0,0,.03);
-  /* plus de position sticky ou top ici */
 }
 
 .contact-aside h2 {
@@ -861,9 +908,7 @@ body {
   line-height: 1.4;
 }
 
-
-
-/* Responsive */
+/* Responsive contact */
 @media (max-width: 960px) {
   .contact-grid {
     grid-template-columns: 1fr;
@@ -926,6 +971,7 @@ body {
 .dash-card .btn {
   align-self: flex-start;
 }
+
 .club-grid {
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));

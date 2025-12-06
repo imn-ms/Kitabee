@@ -10,12 +10,13 @@ if (empty($_SESSION['user'])) {
 
 require_once __DIR__ . '/secret/database.php';
 
+$userId    = (int)($_SESSION['user'] ?? 0);
 $login     = $_SESSION['login'] ?? 'Utilisateur';
 $pageTitle = "Mon espace – Kitabee";
 
 /** Nombre de demandes d'amis en attente pour l'utilisateur connecté */
 $pendingFriendRequests = 0;
-if (!empty($_SESSION['user'])) {
+if ($userId) {
     try {
         $stmt = $pdo->prepare("
             SELECT COUNT(*)
@@ -23,7 +24,7 @@ if (!empty($_SESSION['user'])) {
             WHERE friend_id = :uid
               AND status = 'pending'
         ");
-        $stmt->execute([':uid' => (int)$_SESSION['user']]);
+        $stmt->execute([':uid' => $userId]);
         $pendingFriendRequests = (int)$stmt->fetchColumn();
     } catch (Throwable $e) {
         $pendingFriendRequests = 0;
@@ -32,7 +33,7 @@ if (!empty($_SESSION['user'])) {
 
 /** Nombre d'invitations de clubs de lecture */
 $pendingClubInvites = 0;
-if (!empty($_SESSION['user'])) {
+if ($userId) {
     try {
         $stmtClub = $pdo->prepare("
             SELECT COUNT(*)
@@ -41,10 +42,28 @@ if (!empty($_SESSION['user'])) {
               AND type = 'club_invite'
               AND is_read = 0
         ");
-        $stmtClub->execute([':uid' => (int)$_SESSION['user']]);
+        $stmtClub->execute([':uid' => $userId]);
         $pendingClubInvites = (int)$stmtClub->fetchColumn();
     } catch (Throwable $e) {
         $pendingClubInvites = 0;
+    }
+}
+
+/** Nombre total de messages de clubs non lus */
+$unreadClubMessagesTotal = 0;
+if ($userId) {
+    try {
+        $stmtMsg = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE user_id = :uid
+              AND type = 'club_message'
+              AND is_read = 0
+        ");
+        $stmtMsg->execute([':uid' => $userId]);
+        $unreadClubMessagesTotal = (int)$stmtMsg->fetchColumn();
+    } catch (Throwable $e) {
+        $unreadClubMessagesTotal = 0;
     }
 }
 
@@ -87,14 +106,34 @@ include __DIR__ . '/include/header.inc.php';
       </article>
 
       <!-- Clubs -->
+      <?php
+        $totalClubBadge = $pendingClubInvites + $unreadClubMessagesTotal;
+      ?>
       <article class="dash-card dash-card-clubs">
-        <?php if ($pendingClubInvites > 0): ?>
-          <span class="card-notif-badge"><?= $pendingClubInvites ?></span>
+        <?php if ($totalClubBadge > 0): ?>
+          <span class="card-notif-badge"><?= $totalClubBadge ?></span>
         <?php endif; ?>
         <div class="dash-icon">👥</div>
         <h2>Mes Clubs de Lecture</h2>
-        <p>Consulter vos clubs de lectures ou rejoignez-en un.</p>
-        <a class="btn" href="club.php">Gérer mes clubs</a>
+        <p>Consulter vos clubs de lecture, invitations et discussions.</p>
+
+        <?php if ($pendingClubInvites > 0 || $unreadClubMessagesTotal > 0): ?>
+          <p style="font-size:.9rem; margin-top:4px;">
+            <?php if ($pendingClubInvites > 0): ?>
+              🔔 <?= $pendingClubInvites ?> invitation<?= $pendingClubInvites > 1 ? 's' : '' ?> à des clubs<br>
+            <?php endif; ?>
+            <?php if ($unreadClubMessagesTotal > 0): ?>
+              💬 <?= $unreadClubMessagesTotal ?> nouveau<?= $unreadClubMessagesTotal > 1 ? 'x' : '' ?>
+              message<?= $unreadClubMessagesTotal > 1 ? 's' : '' ?> dans vos clubs
+            <?php endif; ?>
+          </p>
+        <?php else: ?>
+          <p style="font-size:.85rem; color:#6b7280; margin-top:4px;">
+            Aucun nouveau message ou invitation dans vos clubs.
+          </p>
+        <?php endif; ?>
+
+        <a class="btn" href="club.php" style="margin-top:8px;">Gérer mes clubs</a>
       </article>
 
       <!-- Déconnexion -->

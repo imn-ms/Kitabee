@@ -12,8 +12,9 @@ if (!empty($_SESSION['user'])) {
     exit;
 }
 
-// connexion à la base
+// connexion à la base + config (pour reCAPTCHA)
 require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/secret/config.php';
 
 $pageTitle = "Connexion – Kitabee";
 $error = null;
@@ -26,35 +27,75 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
 
 // Traitement du formulaire
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $login = trim($_POST['login'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $target = $_POST['redirect'] ?? 'profil_user.php';
+    $login           = trim($_POST['login'] ?? '');
+    $password        = $_POST['password'] ?? '';
+    $target          = $_POST['redirect'] ?? 'profil_user.php';
+    $captchaResponse = $_POST['g-recaptcha-response'] ?? '';
 
     if ($login === '' || $password === '') {
         $error = "Veuillez renseigner votre identifiant et votre mot de passe.";
+    } elseif ($captchaResponse === '') {
+        $error = "Veuillez valider le CAPTCHA.";
     } else {
-        // récupérer l'utilisateur en BD
-        $stmt = $pdo->prepare('SELECT id, login, password, is_active, avatar FROM users WHERE login = :login LIMIT 1');
-        $stmt->execute([':login' => $login]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Vérification reCAPTCHA côté Google
+        $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+        $params = [
+            'secret'   => RECAPTCHA_SECRET_KEY,
+            'response' => $captchaResponse,
+            'remoteip' => $_SERVER['REMOTE_ADDR'] ?? null
+        ];
 
-        if ($user && password_verify($password, $user['password'])) {
+        $options = [
+            'http' => [
+                'method'  => 'POST',
+                'header'  => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => http_build_query($params)
+            ]
+        ];
 
-            // ✅ vérifier l'activation
-            if ((int)$user['is_active'] !== 1) {
-                $error = "Votre compte n’est pas encore activé. Vérifiez vos emails.";
-            } else {
-                // connexion OK
-                session_regenerate_id(true);
-                $_SESSION['user'] = $user['id'];
-                $_SESSION['login'] = $user['login'];
-                $_SESSION['avatar'] = $user['avatar'] ?? null;
-                header('Location: ' . $target);
-                exit;
-            }
+        $context = stream_context_create($options);
+        $result  = @file_get_contents($verifyUrl, false, $context);
+        $data    = json_decode($result, true);
 
+        if (empty($data['success'])) {
+            $error = "CAPTCHA invalide, merci de réessayer.";
         } else {
-            $error = "Identifiants invalides.";
+
+            // récupérer l'utilisateur en BD
+            $stmt = $pdo->prepare('
+                SELECT id, login, password, is_active, avatar, avatar_type
+                FROM users
+                WHERE login = :login
+                LIMIT 1
+            ');
+            $stmt->execute([':login' => $login]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user && password_verify($password, $user['password'])) {
+
+                // ✅ vérifier l'activation
+                if ((int)$user['is_active'] !== 1) {
+                    $error = "Votre compte n’est pas encore activé. Vérifiez vos emails.";
+                } else {
+                    // connexion OK
+                    session_regenerate_id(true);
+
+                    $_SESSION['user']  = (int)$user['id'];
+                    $_SESSION['login'] = $user['login'];
+
+                    // 🔑 IMPORTANT : indiquer au header si un avatar existe (BLOB en BD)
+                    $_SESSION['avatar_has'] = !empty($user['avatar']);
+
+                    // (optionnel, plus utilisé par le header)
+                    // $_SESSION['avatar'] = $user['avatar'];
+
+                    header('Location: ' . $target);
+                    exit;
+                }
+
+            } else {
+                $error = "Identifiants invalides.";
+            }
         }
     }
 }
@@ -83,13 +124,18 @@ include __DIR__ . '/include/header.inc.php';
       <?php endif; ?>
 
       <form method="post" style="display:grid; gap:12px;">
-        <input type="hidden" name="redirect" value="<?= htmlspecialchars($_GET['redirect'] ?? 'dashboard_user.php', ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="redirect"
+               value="<?= htmlspecialchars($_GET['redirect'] ?? 'dashboard_user.php', ENT_QUOTES, 'UTF-8') ?>">
 
         <label for="login">Identifiant</label>
         <input id="login" type="text" name="login" required autocomplete="username">
 
         <label for="password">Mot de passe</label>
         <input id="password" type="password" name="password" required autocomplete="current-password">
+
+        <!-- Widget reCAPTCHA -->
+        <div class="g-recaptcha"
+             data-sitekey="<?= htmlspecialchars(RECAPTCHA_SITE_KEY, ENT_QUOTES, 'UTF-8') ?>"></div>
 
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn btn-primary" type="submit">Se connecter</button>
@@ -119,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
       msg.style.transition = "opacity 1s ease";
       msg.style.opacity = "0";
       setTimeout(() => msg.remove(), 1000);
-    }, 4000); // disparaît après 4 secondes
+    }, 4000);
   }
 });
 </script>
