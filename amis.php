@@ -9,6 +9,7 @@ if (empty($_SESSION['user'])) {
 }
 
 require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/classes/BadgeManager.php';
 
 $userId    = (int)$_SESSION['user'];
 $login     = $_SESSION['login'] ?? 'Utilisateur';
@@ -200,6 +201,8 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':me' => $userId]);
 $friends = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$badgeManager = new BadgeManager($pdo); $newBadges = $badgeManager->checkAllForUser($userId); if (!empty($newBadges)) { $_SESSION['new_badges'] = $newBadges; }
 
 include __DIR__ . '/include/header.inc.php';
 ?>

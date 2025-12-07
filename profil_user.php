@@ -9,6 +9,8 @@ if (empty($_SESSION['user'])) {
 }
 
 require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/classes/BadgeManager.php';
+
 
 $userId        = (int)$_SESSION['user'];
 $currentLogin  = $_SESSION['login'] ?? '';
@@ -243,6 +245,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
                 $avatarUrl = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
 
                 $message = "Profil mis à jour avec succès 👍";
+
+        // 🔥 Badges (profil / avatar, etc.)
+        $badgeManager = new BadgeManager($pdo);
+        $newBadges = $badgeManager->checkAllForUser($userId);
+
+        if (!empty($newBadges)) {
+            $_SESSION['new_badges'] = $newBadges;
+        }
             } else {
                 $error = "Une erreur est survenue lors de la mise à jour.";
             }

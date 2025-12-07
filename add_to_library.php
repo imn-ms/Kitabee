@@ -1,6 +1,7 @@
 <?php
 session_start();
 require __DIR__ . '/private/config.php'; 
+require_once __DIR__ . '/classes/BadgeManager.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: connexion.php');
@@ -68,6 +69,13 @@ $stmt->execute([
     ':authors' => $authors,
     ':thumb'   => $thumb,
 ]);
+
+$badgeManager = new BadgeManager($pdo);
+$newBadges = $badgeManager->checkAllForUser($userId);
+
+if (!empty($newBadges)) {
+    $_SESSION['new_badges'] = $newBadges;
+}
 
 // 4. revenir sur la page du livre
 header('Location: detail.php?id=' . urlencode($bookId));

@@ -9,10 +9,15 @@ if (empty($_SESSION['user'])) {
 }
 
 require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/classes/BadgeManager.php';
 
 $userId    = (int)($_SESSION['user'] ?? 0);
 $login     = $_SESSION['login'] ?? 'Utilisateur';
 $pageTitle = "Mon espace – Kitabee";
+
+// ===== Badges utilisateur =====
+$badgeManager = new BadgeManager($pdo);
+$userBadges   = $badgeManager->getUserBadges($userId); // <-- ici : $userId (et pas $userID)
 
 /** Nombre de demandes d'amis en attente pour l'utilisateur connecté */
 $pendingFriendRequests = 0;
@@ -136,6 +141,24 @@ include __DIR__ . '/include/header.inc.php';
         <a class="btn" href="club.php" style="margin-top:8px;">Gérer mes clubs</a>
       </article>
 
+      <!-- Badges -->
+      <article class="dash-card" style="grid-column: 1 / -1;">
+        <h2>Mes badges</h2>
+        <?php if (empty($userBadges)): ?>
+          <p>Tu n'as pas encore débloqué de badge.</p>
+        <?php else: ?>
+          <ul>
+            <?php foreach ($userBadges as $badge): ?>
+              <li>
+                <strong><?= htmlspecialchars($badge['name']) ?></strong><br>
+                <?= htmlspecialchars($badge['description']) ?><br>
+                <small>Débloqué le <?= htmlspecialchars($badge['unlocked_at']) ?></small>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+      </article>
+
       <!-- Déconnexion -->
       <article class="dash-card">
         <div class="dash-icon">🚪</div>
@@ -150,87 +173,3 @@ include __DIR__ . '/include/header.inc.php';
 
 <?php include __DIR__ . '/include/footer.inc.php'; ?>
 
-<style>
-/* ==== Dashboard User ==== */
-.dashboard .section-title {
-  font-size: 1.8rem;
-  margin-bottom: 10px;
-  color: #5f7f5f;
-}
-.dashboard .subtitle {
-  color: #555;
-  margin-bottom: 24px;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
-
-.dash-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 20px 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-  position: relative; /* pour les badges */
-}
-.dash-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-}
-
-.dash-icon {
-  font-size: 2rem;
-  margin-bottom: 10px;
-}
-.dash-card h2 {
-  margin: 4px 0;
-  font-size: 1.1rem;
-  color: #1e3a8a;
-}
-.dash-card p {
-  font-size: .9rem;
-  color: #555;
-  margin-bottom: 14px;
-}
-.dash-card .btn {
-  align-self: flex-start;
-}
-
-/* Badge rond pour les cards (amis + clubs) */
-.card-notif-badge {
-  position:absolute;
-  top:10px;
-  right:16px;
-  display:inline-flex;
-  min-width:18px;
-  height:18px;
-  padding:0 5px;
-  border-radius:999px;
-  background:#dc2626;
-  color:#fff;
-  font-size:0.7rem;
-  font-weight:700;
-  align-items:center;
-  justify-content:center;
-}
-
-/* Pour thème sombre éventuel */
-body.nuit .dash-card {
-  background: #1f2937;
-  color: #f3f4f6;
-  border-color: #374151;
-}
-body.nuit .dash-card h2 {
-  color: #93c5fd;
-}
-body.nuit .dash-card p {
-  color: #d1d5db;
-}
-</style>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require __DIR__ . '/private/config.php';
+require_once __DIR__ . '/classes/BadgeManager.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: connexion.php');
@@ -76,6 +77,13 @@ $stmt->execute([
     ':thumb'   => $thumb,
 ]);
 
+/*on verifie si ya un badge débloqué*/
+$badgeManager = new BadgeManager($pdo);
+$newBadges = $badgeManager->checkAllForUser($userId);
+
+if (!empty($newBadges)) {
+    $_SESSION['new_badges'] = $newBadges;
+}
 /**
  * 4. Retour à la page de détail
  */

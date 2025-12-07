@@ -1,6 +1,6 @@
 <?php
 /**
- * header.php – Kitabee (VERSION AVEC GOOGLE TRANSLATE UNIQUEMENT)
+ * header.inc.php – Kitabee
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -122,30 +122,6 @@ if ($allowNonEssential) {
 
   <script src="/include/script.js" defer></script>
 
-  <style>
-    .notif-badge {
-      display:inline-flex;
-      min-width:18px;
-      height:18px;
-      padding:0 5px;
-      border-radius:999px;
-      background:#dc2626;
-      color:#fff;
-      font-size:0.7rem;
-      font-weight:700;
-      align-items:center;
-      justify-content:center;
-    }
-    .profile-wrapper {
-      position:relative;
-      display:inline-block;
-    }
-    .avatar-notif-badge {
-      position:absolute;
-      top:-4px;
-      right:-4px;
-    }
-  </style>
 </head>
 <body class="<?= htmlspecialchars($style, ENT_QUOTES) ?>">
 <a id="top"></a>
