@@ -322,7 +322,6 @@ if ($clubId <= 0) {
 
     <?php include __DIR__ . '/include/footer.inc.php'; ?>
 
-<<<<<<< HEAD
     <style>
       .club-grid {
         display:grid;
@@ -378,7 +377,7 @@ if ($clubId <= 0) {
       .club-meta {
         margin:0;
         font-size:.8rem;
-        color:#6b7280;
+          color:#6b7280;
       }
       .club-actions {
         display:flex;
@@ -403,8 +402,6 @@ if ($clubId <= 0) {
       }
     </style>
 
-=======
->>>>>>> 595321bb75d8561a72bcca7470fc1ee2ac8491ac
     <?php
     exit;
 }
@@ -592,7 +589,7 @@ $stmtMsg = $pdo->prepare("
         m.content, 
         m.created_at, 
         u.login, 
-        (u.avatar IS NOT NULL) AS has_avatar,
+        (u.avatar_choice IS NOT NULL) AS has_avatar,
         u.id AS user_id
     FROM book_club_messages m
     JOIN users u ON u.id = m.user_id
@@ -1628,6 +1625,6 @@ include __DIR__ . '/include/header.inc.php';
     });
   });
 
-  // Par défaut : on affiche Membres (déjà actif via classe is-active)
+  // Par défaut : Membres (déjà actif)
 })();
 </script>

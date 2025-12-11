@@ -168,7 +168,14 @@ class ClubManager
     /* ================== Membres ================== */
 
     /**
-     * Liste des membres d'un club (id, login, has_avatar, role, joined_at).
+     * Liste des membres d'un club :
+     *  - id
+     *  - login
+     *  - avatar_choice (NULL = initiale)
+     *  - has_avatar (1 si un avatar prédéfini est choisi, 0 sinon)
+     *  - role
+     *  - joined_at
+     *
      * L'utilisateur courant doit être membre du club.
      */
     public function getMembers(int $clubId): array
@@ -182,7 +189,8 @@ class ClubManager
             SELECT 
                 u.id,
                 u.login,
-                (u.avatar IS NOT NULL) AS has_avatar,
+                u.avatar_choice,
+                (u.avatar_choice IS NOT NULL) AS has_avatar,
                 m.role,
                 m.joined_at
             FROM book_club_members m

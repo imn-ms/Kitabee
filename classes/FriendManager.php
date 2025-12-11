@@ -91,7 +91,12 @@ class FriendManager
     public function getFriends(): array
     {
         $sql = "
-            SELECT u.id, u.login, u.email, u.avatar
+            SELECT 
+                u.id,
+                u.login,
+                u.email,
+                u.avatar_choice,
+                (u.avatar_choice IS NOT NULL) AS has_avatar
             FROM user_friends f
             JOIN users u 
               ON (u.id = f.user_id OR u.id = f.friend_id)
@@ -108,7 +113,12 @@ class FriendManager
     public function getIncoming(): array
     {
         $sql = "
-            SELECT u.id, u.login, u.avatar, u.email
+            SELECT 
+                u.id,
+                u.login,
+                u.email,
+                u.avatar_choice,
+                (u.avatar_choice IS NOT NULL) AS has_avatar
             FROM user_friends f
             JOIN users u ON u.id = f.user_id
             WHERE f.status = 'pending'
@@ -123,7 +133,11 @@ class FriendManager
     public function getOutgoing(): array
     {
         $sql = "
-            SELECT u.id, u.login, u.avatar
+            SELECT 
+                u.id,
+                u.login,
+                u.avatar_choice,
+                (u.avatar_choice IS NOT NULL) AS has_avatar
             FROM user_friends f
             JOIN users u ON u.id = f.friend_id
             WHERE f.status = 'pending'

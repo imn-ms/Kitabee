@@ -1,5 +1,5 @@
 <?php
-// profil_user.php — page de gestion du profil (avatar en BLOB dans la BD)
+// profil_user.php — page de gestion du profil (avatar basé sur avatar_choice dans la BD)
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -10,7 +10,6 @@ if (empty($_SESSION['user'])) {
 
 require_once __DIR__ . '/secret/database.php';
 require_once __DIR__ . '/classes/BadgeManager.php';
-
 
 $userId        = (int)$_SESSION['user'];
 $currentLogin  = $_SESSION['login'] ?? '';
@@ -34,7 +33,7 @@ function is_strong_password(string $pwd): bool {
 
 // Récupérer les infos actuelles de l'utilisateur
 $stmt = $pdo->prepare("
-    SELECT login, email, avatar, avatar_type, password
+    SELECT login, email, avatar_choice, password
     FROM users
     WHERE id = :id
     LIMIT 1
@@ -50,8 +49,9 @@ $message = null;
 $error   = null;
 
 // Pour l'affichage de l'avatar (script dynamique)
-$hasAvatar = !empty($user['avatar']);
-$avatarUrl = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
+$currentAvatarChoice = $user['avatar_choice'] ?? null;
+$hasAvatar           = !empty($currentAvatarChoice); // true si un des 6 avatars est choisi
+$avatarUrl           = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
 
 /* ---------------------------------------------
    SUPPRESSION DE COMPTE
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
         $error = "Mot de passe incorrect. Suppression annulée.";
     } else {
 
-        // Suppression du compte (l’avatar BLOB part avec la ligne)
+        // Suppression du compte
         $stmtDel = $pdo->prepare("DELETE FROM users WHERE id = :id");
         $okDel   = $stmtDel->execute([':id' => $userId]);
 
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
 }
 
 /* ---------------------------------------------
-   MISE À JOUR PROFIL (login, mail, avatar…)
+   MISE À JOUR PROFIL (login, mail, avatar, mdp…)
 ----------------------------------------------*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
 
@@ -90,6 +90,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
     $newEmail           = trim($_POST['email'] ?? '');
     $newPassword        = $_POST['password'] ?? '';
     $newPasswordConfirm = $_POST['password_confirm'] ?? '';
+
+    // Gestion avatar_choice : un des 6 avatars, ou aucun (= initiale)
+    $allowedAvatars = ['candice', 'genie', 'jerry', 'snoopy', 'belle', 'naruto'];
+
+    $avatarChoicePost = $_POST['avatar_choice'] ?? ''; // peut être '', 'none' ou un des 6
+
+    if ($avatarChoicePost === '' || $avatarChoicePost === 'none') {
+        $avatarChoice = null; // utiliser la première lettre du pseudo
+    } else {
+        if (!in_array($avatarChoicePost, $allowedAvatars, true)) {
+            $error = "Avatar choisi invalide.";
+            $avatarChoice = null;
+        } else {
+            $avatarChoice = $avatarChoicePost;
+        }
+    }
 
     if ($newLogin === '' || $newEmail === '') {
         $error = "L'identifiant et l'e-mail ne peuvent pas être vides.";
@@ -116,64 +132,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
     }
 
     /* ---------------------------------------------------------
-       GESTION AVATAR (upload vers BLOB)
-    -----------------------------------------------------------*/
-    // On part de l’avatar actuel (BLOB) et du mime
-    $avatarData = $user['avatar'];
-    $avatarType = $user['avatar_type'] ?? null;
-
-    if (!$error && isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
-
-        $file = $_FILES['avatar'];
-
-        if ($file['error'] === UPLOAD_ERR_OK) {
-
-            // Taille max 2 Mo
-            if ($file['size'] > 2 * 1024 * 1024) {
-                $error = "L'image est trop lourde (max 2 Mo).";
-            } else {
-
-                // Types autorisés
-                $allowedTypes = [
-                    'image/jpeg' => 'jpg',
-                    'image/png'  => 'png',
-                    'image/gif'  => 'gif',
-                    'image/webp' => 'webp'
-                ];
-
-                $detectedType = mime_content_type($file['tmp_name']);
-
-                if (!array_key_exists($detectedType, $allowedTypes)) {
-                    $error = "Format d'image non autorisé (JPG, PNG, GIF, WebP).";
-                } else {
-
-                    // Vérifier largeur / hauteur (en-tête fichier) — diapos
-                    $imgInfo = @getimagesize($file['tmp_name']);
-                    if ($imgInfo === false) {
-                        $error = "Le fichier n'est pas une image valide.";
-                    } else {
-                        $width  = $imgInfo[0];
-                        $height = $imgInfo[1];
-
-                        // Exemple de contrainte : 1024x1024 max
-                        if ($width > 1024 || $height > 1024) {
-                            $error = "L'image est trop grande (max 1024x1024).";
-                        }
-                    }
-
-                    if (!$error) {
-                        // Lecture binaire du fichier pour stockage en BLOB
-                        $avatarData = file_get_contents($file['tmp_name']);
-                        $avatarType = $detectedType; // ex: image/png
-                    }
-                }
-            }
-        } else {
-            $error = "Erreur lors de l’envoi du fichier.";
-        }
-    }
-
-    /* ---------------------------------------------------------
        MISE À JOUR SQL
     -----------------------------------------------------------*/
     if (!$error) {
@@ -191,21 +149,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
 
                 $stmt = $pdo->prepare("
                     UPDATE users
-                    SET login       = :login,
-                        email       = :email,
-                        password    = :password,
-                        avatar      = :avatar,
-                        avatar_type = :avatar_type
+                    SET login         = :login,
+                        email         = :email,
+                        password      = :password,
+                        avatar_choice = :avatar_choice
                     WHERE id = :id
                 ");
 
                 $ok = $stmt->execute([
-                    ':login'       => $newLogin,
-                    ':email'       => $newEmail,
-                    ':password'    => $hashed,
-                    ':avatar'      => $avatarData,
-                    ':avatar_type' => $avatarType,
-                    ':id'          => $userId
+                    ':login'         => $newLogin,
+                    ':email'         => $newEmail,
+                    ':password'      => $hashed,
+                    ':avatar_choice' => $avatarChoice,
+                    ':id'            => $userId
                 ]);
             }
 
@@ -213,19 +169,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
             // Sans modification du mot de passe
             $stmt = $pdo->prepare("
                 UPDATE users
-                SET login       = :login,
-                    email       = :email,
-                    avatar      = :avatar,
-                    avatar_type = :avatar_type
+                SET login         = :login,
+                    email         = :email,
+                    avatar_choice = :avatar_choice
                 WHERE id = :id
             ");
 
             $ok = $stmt->execute([
-                ':login'       => $newLogin,
-                ':email'       => $newEmail,
-                ':avatar'      => $avatarData,
-                ':avatar_type' => $avatarType,
-                ':id'          => $userId
+                ':login'         => $newLogin,
+                ':email'         => $newEmail,
+                ':avatar_choice' => $avatarChoice,
+                ':id'            => $userId
             ]);
         }
 
@@ -233,26 +187,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
             if (!empty($ok)) {
                 // maj session
                 $_SESSION['login']      = $newLogin;
-                $_SESSION['avatar_has'] = !empty($avatarData);
+                $_SESSION['avatar_has'] = !empty($avatarChoice);
 
                 // maj structure locale
-                $user['login']       = $newLogin;
-                $user['email']       = $newEmail;
-                $user['avatar']      = $avatarData;
-                $user['avatar_type'] = $avatarType;
+                $user['login']         = $newLogin;
+                $user['email']         = $newEmail;
+                $user['avatar_choice'] = $avatarChoice;
 
-                $hasAvatar = !empty($avatarData);
-                $avatarUrl = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
+                $currentAvatarChoice = $avatarChoice;
+                $hasAvatar           = !empty($currentAvatarChoice);
+                $avatarUrl           = $hasAvatar ? 'avatar.php?id=' . urlencode($userId) : null;
 
                 $message = "Profil mis à jour avec succès 👍";
 
-        // 🔥 Badges (profil / avatar, etc.)
-        $badgeManager = new BadgeManager($pdo);
-        $newBadges = $badgeManager->checkAllForUser($userId);
+                // 🔥 Badges (profil / avatar, etc.)
+                $badgeManager = new BadgeManager($pdo);
+                $newBadges = $badgeManager->checkAllForUser($userId);
 
-        if (!empty($newBadges)) {
-            $_SESSION['new_badges'] = $newBadges;
-        }
+                if (!empty($newBadges)) {
+                    $_SESSION['new_badges'] = $newBadges;
+                }
             } else {
                 $error = "Une erreur est survenue lors de la mise à jour.";
             }
@@ -281,30 +235,66 @@ include __DIR__ . '/include/header.inc.php';
       </div>
     <?php endif; ?>
 
-    <form method="post" enctype="multipart/form-data"
+    <form method="post"
           style="display:grid; gap:14px; background:#fff; padding:20px; border-radius:14px; border:1px solid #e5e7eb;">
 
-      <!-- Limite côté navigateur : 2 Mo (complète MAXFILESIZE des diapos) -->
-      <input type="hidden" name="MAX_FILE_SIZE" value="2097152">
-
-      <!-- Avatar -->
-      <div style="display:flex; align-items:center; gap:14px;">
-        <?php if ($hasAvatar && $avatarUrl): ?>
-          <img src="<?= htmlspecialchars($avatarUrl, ENT_QUOTES, 'UTF-8') ?>"
-               alt="Avatar"
-               style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
-        <?php else: ?>
-          <div style="width:70px; height:70px; border-radius:50%; background:#0078ff;
-                      display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px;">
-            <?= strtoupper(substr($user['login'], 0, 1)) ?>
-          </div>
-        <?php endif; ?>
-
+      <!-- Avatar : aperçu + choix -->
+      <div style="display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;">
         <div>
-          <label for="avatar">Changer d’avatar :</label><br>
-          <input type="file" name="avatar" id="avatar" accept="image/*">
-          <p style="font-size:.8rem; color:#666;">
-            Max 2 Mo — JPG, PNG, GIF, WebP.
+          <?php if ($hasAvatar && $avatarUrl): ?>
+            <img src="<?= htmlspecialchars($avatarUrl, ENT_QUOTES, 'UTF-8') ?>"
+                 alt="Avatar"
+                 style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
+          <?php else: ?>
+            <!-- fallback visuel : première lettre (même logique que avatar.php mais en CSS) -->
+            <div style="width:70px; height:70px; border-radius:50%; background:#0078ff;
+                        display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px;">
+              <?= strtoupper(substr($user['login'], 0, 1)) ?>
+            </div>
+          <?php endif; ?>
+        </div>
+
+        <div style="flex:1;">
+          <p style="margin:0 0 8px;"><strong>Choisissez votre avatar :</strong></p>
+
+          <?php
+          $currentAvatarChoice = $user['avatar_choice'] ?? null;
+          ?>
+
+          <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
+            <input type="radio" name="avatar_choice" value="none"
+                   <?= $currentAvatarChoice === null ? 'checked' : '' ?>>
+            <span>Utiliser la première lettre de mon pseudo</span>
+          </label>
+
+          <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
+            <?php
+            $avatarOptions = [
+                'candice' => 'Candice',
+                'genie'   => 'Génie',
+                'jerry'   => 'Jerry',
+                'snoopy'  => 'Snoopy',
+                'belle'   => 'Belle',
+                'naruto'  => 'Naruto',
+            ];
+
+            foreach ($avatarOptions as $value => $label):
+                $checked = ($currentAvatarChoice === $value) ? 'checked' : '';
+            ?>
+              <label style="display:flex; flex-direction:column; align-items:center; gap:4px;
+                            cursor:pointer; font-size:.85rem;">
+                <input type="radio" name="avatar_choice" value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>"
+                       <?= $checked ?>>
+                <img src="avatar/<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>.JPG"
+                     alt="<?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>"
+                     style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid #e5e7eb;">
+                <span><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>
+              </label>
+            <?php endforeach; ?>
+          </div>
+
+          <p style="font-size:.8rem; color:#666; margin-top:8px;">
+            Si vous ne choisissez aucun avatar, une bulle avec la première lettre de votre identifiant sera utilisée.
           </p>
         </div>
       </div>
