@@ -6,7 +6,7 @@ header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
 // 1) config d'abord (clé Google + BDD)
-require __DIR__ . '/private/config.php';
+require __DIR__ . '/secret/config.php';
 
 $visited = isset($_COOKIE['visited']);
 if (!$visited) {

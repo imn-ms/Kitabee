@@ -168,7 +168,7 @@ class ClubManager
     /* ================== Membres ================== */
 
     /**
-     * Liste des membres d'un club (id, login, avatar, role, joined_at).
+     * Liste des membres d'un club (id, login, has_avatar, role, joined_at).
      * L'utilisateur courant doit être membre du club.
      */
     public function getMembers(int $clubId): array
@@ -179,7 +179,12 @@ class ClubManager
         }
 
         $sql = "
-            SELECT u.id, u.login, u.avatar, m.role, m.joined_at
+            SELECT 
+                u.id,
+                u.login,
+                (u.avatar IS NOT NULL) AS has_avatar,
+                m.role,
+                m.joined_at
             FROM book_club_members m
             JOIN users u ON u.id = m.user_id
             WHERE m.club_id = :cid

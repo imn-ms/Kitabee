@@ -4,7 +4,7 @@ session_start();
 
 $pageTitle = "Actualité littéraire – Kitabee";
 
-require __DIR__ . '/private/config.php';
+require __DIR__ . '/secret/config.php';
 include 'include/header.inc.php';
 
 // ====== Appel de l'API The Guardian (section Books) ======
