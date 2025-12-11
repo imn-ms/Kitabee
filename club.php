@@ -322,6 +322,89 @@ if ($clubId <= 0) {
 
     <?php include __DIR__ . '/include/footer.inc.php'; ?>
 
+<<<<<<< HEAD
+    <style>
+      .club-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+        gap:16px;
+        margin-top:10px;
+      }
+      .club-card {
+        background:#fff;
+        border:1px solid #e5e7eb;
+        border-radius:14px;
+        padding:14px 16px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:10px;
+        box-shadow:0 4px 10px rgba(0,0,0,0.04);
+        transition:transform .15s ease, box-shadow .15s ease;
+      }
+      .club-card:hover {
+        transform:translateY(-2px);
+        box-shadow:0 6px 18px rgba(0,0,0,0.08);
+      }
+      .club-main {
+        display:flex;
+        gap:10px;
+      }
+      .club-icon {
+        width:42px;
+        height:42px;
+        border-radius:999px;
+        background:#5f7f5f;
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:1.3rem;
+      }
+      .club-name {
+        margin:0 0 4px;
+        font-size:1rem;
+        color:#111827;
+      }
+      .club-description {
+        margin:0 0 4px;
+        font-size:.9rem;
+        color:#374151;
+      }
+      .club-description-muted {
+        font-style:italic;
+        color:#9ca3af;
+      }
+      .club-meta {
+        margin:0;
+        font-size:.8rem;
+        color:#6b7280;
+      }
+      .club-actions {
+        display:flex;
+        align-items:center;
+      }
+      body.nuit .club-card {
+        background:#1f2937;
+        border-color:#374151;
+        color:#e5e7eb;
+      }
+      body.nuit .club-icon {
+        background:#3b82f6;
+      }
+      body.nuit .club-name {
+        color:#f9fafb;
+      }
+      body.nuit .club-description {
+        color:#d1d5db;
+      }
+      body.nuit .club-meta {
+        color:#9ca3af;
+      }
+    </style>
+
+=======
+>>>>>>> 595321bb75d8561a72bcca7470fc1ee2ac8491ac
     <?php
     exit;
 }
@@ -384,9 +467,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['club_message'])) {
                     ':cid' => $clubId,
                     ':uid' => $userId,
                 ]);
-                $members = $stmtMembers->fetchAll(PDO::FETCH_COLUMN);
+                $membersForNotif = $stmtMembers->fetchAll(PDO::FETCH_COLUMN);
 
-                if ($members) {
+                if ($membersForNotif) {
                     // Petit aperçu du message pour la notif
                     $preview = mb_substr($content, 0, 120);
                     if (mb_strlen($content) > 120) {
@@ -398,7 +481,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['club_message'])) {
                         VALUES (:uid, :from_uid, :club_id, 'club_message', :content, 0, NOW())
                     ");
 
-                    foreach ($members as $memberId) {
+                    foreach ($membersForNotif as $memberId) {
                         $stmtNotif->execute([
                             ':uid'      => (int)$memberId,
                             ':from_uid' => $userId,
@@ -480,6 +563,7 @@ try {
 // membres du club
 $members = $cm->getMembers($clubId);
 $memberIds = array_column($members, 'id');
+$memberCount = count($members);
 
 // amis (pour les invitations)
 $friends          = $fm->getFriends();
@@ -489,6 +573,7 @@ $invitableFriends = array_filter($friends, function ($f) use ($memberIds) {
 
 // livres du club (avec title, authors, thumbnail si dispo)
 $clubBooks = $cm->getBooks($clubId);
+$clubBooksCount = count($clubBooks);
 
 // bibliothèque perso de l'utilisateur (pour proposer des livres à ajouter au club)
 $stmtLib = $pdo->prepare("
@@ -502,7 +587,13 @@ $userLibrary = $stmtLib->fetchAll(PDO::FETCH_ASSOC);
 
 // messages du club
 $stmtMsg = $pdo->prepare("
-    SELECT m.id, m.content, m.created_at, u.login, u.avatar, u.id AS user_id
+    SELECT 
+        m.id, 
+        m.content, 
+        m.created_at, 
+        u.login, 
+        (u.avatar IS NOT NULL) AS has_avatar,
+        u.id AS user_id
     FROM book_club_messages m
     JOIN users u ON u.id = m.user_id
     WHERE m.club_id = :cid
@@ -517,25 +608,25 @@ include __DIR__ . '/include/header.inc.php';
 ?>
 
 <section class="section">
-  <div class="container" style="max-width:1100px;">
+  <div class="container club-page" style="max-width:1100px;">
 
     <!-- En-tête du club -->
-    <header class="card" style="padding:18px 22px; margin-bottom:20px; border-radius:14px; border:1px solid #e5e7eb;">
-      <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-        <div style="flex:1; min-width:260px;">
-          <h1 class="section-title" style="margin-bottom:4px;">
+    <header class="card club-header">
+      <div class="club-header-main">
+        <div>
+          <h1 class="section-title club-header-title">
             📖 <?= htmlspecialchars($club['name'], ENT_QUOTES, 'UTF-8') ?>
           </h1>
           <?php if (!empty($club['description'])): ?>
-            <p style="margin:0 0 6px; color:#4b5563;">
+            <p class="club-header-description">
               <?= nl2br(htmlspecialchars($club['description'], ENT_QUOTES, 'UTF-8')) ?>
             </p>
           <?php else: ?>
-            <p style="margin:0 0 6px; color:#9ca3af; font-style:italic;">
+            <p class="club-header-description club-header-description-muted">
               Ce club n'a pas encore de description.
             </p>
           <?php endif; ?>
-          <p style="margin:0; font-size:.85rem; color:#6b7280;">
+          <p class="club-header-meta">
             Vous êtes : 
             <?php if ($club['my_role'] === 'owner'): ?>
               <strong>Créateur du club</strong>
@@ -544,203 +635,222 @@ include __DIR__ . '/include/header.inc.php';
             <?php endif; ?>
             • Créé le <?= htmlspecialchars(date('d/m/Y', strtotime($club['created_at'])), ENT_QUOTES, 'UTF-8') ?>
           </p>
+          <p class="club-header-meta-small">
+            <?= $memberCount ?> membre<?= $memberCount > 1 ? 's' : '' ?> •
+            <?= $clubBooksCount ?> livre<?= $clubBooksCount > 1 ? 's' : '' ?>
+          </p>
 
           <?php if ($unreadMessagesThisClub > 0): ?>
-            <p style="margin:6px 0 0; font-size:.85rem; color:#b91c1c;">
+            <p class="club-header-alert">
               🔔 Vous aviez <?= $unreadMessagesThisClub ?> nouveau<?= $unreadMessagesThisClub > 1 ? 'x' : '' ?>
               message<?= $unreadMessagesThisClub > 1 ? 's' : '' ?> non lu<?= $unreadMessagesThisClub > 1 ? 's' : '' ?> dans ce club.
             </p>
           <?php endif; ?>
 
           <?php if ($leaveError): ?>
-            <p style="margin-top:8px; font-size:.85rem; color:#dc2626;">
+            <p class="club-header-error">
               <?= htmlspecialchars($leaveError, ENT_QUOTES, 'UTF-8') ?>
             </p>
           <?php endif; ?>
           <?php if ($deleteError): ?>
-            <p style="margin-top:8px; font-size:.85rem; color:#dc2626;">
+            <p class="club-header-error">
               <?= htmlspecialchars($deleteError, ENT_QUOTES, 'UTF-8') ?>
             </p>
           <?php endif; ?>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <a href="club.php" class="btn btn-ghost">⬅ Retour à mes clubs</a>
-
-          <?php if ($club['my_role'] !== 'owner'): ?>
-            <form method="post" onsubmit="return confirm('Voulez-vous vraiment quitter ce club ?');" style="margin:0;">
-              <button 
-                type="submit" 
-                name="leave_club" 
-                value="1" 
-                class="btn btn-ghost" 
-                style="background:#fee2e2; color:#b91c1c;">
-                Quitter le club
-              </button>
-            </form>
-          <?php endif; ?>
-
-          <?php if ($club['my_role'] === 'owner'): ?>
-            <form method="post"
-                  onsubmit="return confirm('Supprimer définitivement ce club pour tous les membres ?');"
-                  style="margin:0;">
-              <input type="hidden" name="delete_club" value="1">
-              <button type="submit" class="btn btn-ghost" style="background:#dc2626;color:white;">
-                🗑️ Supprimer le club
-              </button>
-            </form>
-          <?php endif; ?>
-
-        </div>
       </div>
-    </header>
+      <div class="club-header-actions">
+        <a href="club.php" class="btn btn-ghost">⬅ Retour à mes clubs</a>
 
-    <div class="club-layout">
-      <!-- Colonne membres -->
-      <section class="club-column">
-        <h2 class="club-subtitle">Membres du club</h2>
-
-        <?php if (!$members): ?>
-          <p>Aucun membre pour le moment (ce qui est bizarre, car vous en faites partie 😅).</p>
-        <?php else: ?>
-          <ul class="member-list">
-            <?php foreach ($members as $m): ?>
-              <li class="member-item">
-                <div class="member-main">
-                  <?php if (!empty($m['avatar'])): ?>
-                    <img src="uploads/avatars/<?= htmlspecialchars($m['avatar'], ENT_QUOTES, 'UTF-8') ?>" alt="Avatar de <?= htmlspecialchars($m['login'], ENT_QUOTES, 'UTF-8') ?>" class="member-avatar">
-                  <?php else: ?>
-                    <div class="member-avatar member-avatar-fallback">
-                      <?= strtoupper(substr($m['login'], 0, 1)) ?>
-                    </div>
-                  <?php endif; ?>
-                  <div>
-                    <div class="member-name">
-                      <?= htmlspecialchars($m['login'], ENT_QUOTES, 'UTF-8') ?>
-                      <?php if ($m['role'] === 'owner'): ?>
-                        <span class="badge badge-owner">Créateur</span>
-                      <?php endif; ?>
-                    </div>
-                    <div class="member-meta">
-                      Membre depuis le <?= htmlspecialchars(date('d/m/Y', strtotime($m['joined_at'])), ENT_QUOTES, 'UTF-8') ?>
-                    </div>
-                  </div>
-                </div>
-
-                <?php if ($club['my_role'] === 'owner' && $m['role'] !== 'owner' && $m['id'] !== $userId): ?>
-                  <button
-                    type="button"
-                    class="btn btn-ghost js-remove-member"
-                    data-user-id="<?= (int)$m['id'] ?>"
-                  >Retirer</button>
-                <?php endif; ?>
-              </li>
-            <?php endforeach; ?>
-          </ul>
+        <?php if ($club['my_role'] !== 'owner'): ?>
+          <form method="post" onsubmit="return confirm('Voulez-vous vraiment quitter ce club ?');" style="margin:0;">
+            <button 
+              type="submit" 
+              name="leave_club" 
+              value="1" 
+              class="btn btn-ghost club-btn-danger-soft">
+              Quitter le club
+            </button>
+          </form>
         <?php endif; ?>
 
         <?php if ($club['my_role'] === 'owner'): ?>
-          <div class="card" style="margin-top:16px; padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb;">
-            <h3 style="margin:0 0 6px; font-size:.98rem;">Inviter un ami au club</h3>
-            <?php if (!$invitableFriends): ?>
-              <p style="margin:0; font-size:.85rem; color:#6b7280;">
-                Aucun ami disponible à inviter (ils sont peut-être déjà tous membres !).
-              </p>
-            <?php else: ?>
-              <div style="display:flex; gap:8px; margin-top:6px;">
-                <select id="invite-friend-select" style="flex:1;">
-                  <?php foreach ($invitableFriends as $f): ?>
-                    <option value="<?= (int)$f['id'] ?>">
-                      <?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?>
-                    </option>
-                  <?php endforeach; ?>
-                </select>
-                <button type="button" class="btn btn-primary" id="invite-friend-btn">Inviter</button>
-              </div>
-              <p id="invite-friend-feedback" style="margin:6px 0 0; font-size:.8rem; color:#16a34a; display:none;">
-                Invitation envoyée.
-              </p>
-            <?php endif; ?>
-          </div>
+          <form method="post"
+                onsubmit="return confirm('Supprimer définitivement ce club pour tous les membres ?');"
+                style="margin:0;">
+            <input type="hidden" name="delete_club" value="1">
+            <button type="submit" class="btn btn-ghost club-btn-danger">
+              🗑️ Supprimer le club
+            </button>
+          </form>
         <?php endif; ?>
-      </section>
 
-      <!-- Colonne livres -->
-      <section class="club-column">
-        <h2 class="club-subtitle">Livres du club</h2>
+      </div>
+    </header>
 
-        <?php if (!$clubBooks): ?>
-          <p>Aucun livre n’a encore été ajouté à ce club.</p>
-        <?php else: ?>
-          <ul class="book-list">
-            <?php foreach ($clubBooks as $b): ?>
-              <?php
-                $title    = $b['title'] ?: 'Titre inconnu';
-                $authors  = $b['authors'] ?: 'Auteur inconnu';
-                $thumb    = $b['thumbnail'] ?: "https://via.placeholder.com/80x120?text=Pas+d'image";
-                $addedAt  = $b['added_at'] ?? null;
-              ?>
-              <li class="book-item">
-                <div class="book-main">
-                  <img
-                    src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
-                    alt="Couverture du livre"
-                    class="book-cover"
-                  >
-                  <div>
-                    <div class="book-title">
-                      <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
-                    </div>
-                    <div class="book-authors">
-                      <?= htmlspecialchars($authors, ENT_QUOTES, 'UTF-8') ?>
-                    </div>
-                    <div class="book-meta-small">
-                      <?php if ($addedAt): ?>
-                        Ajouté le <?= htmlspecialchars(date('d/m/Y', strtotime($addedAt)), ENT_QUOTES, 'UTF-8') ?>
-                      <?php endif; ?>
-                      • <a
-                          href="https://books.google.com/books?id=<?= urlencode($b['google_book_id']) ?>"
-                          target="_blank"
-                          rel="noopener"
-                        >
-                          Voir sur Google Books
-                        </a>
+    <!-- Layout principal : bannière à gauche + contenu à droite -->
+    <div class="club-layout-shell">
+      <!-- BANNIÈRE / SIDEBAR -->
+      <aside class="club-sidebar">
+        <div class="club-sidebar-card">
+          <div class="club-sidebar-header">
+            <div class="club-sidebar-icon-lg">📚</div>
+            <div>
+              <div class="club-sidebar-title">
+                <?= htmlspecialchars($club['name'], ENT_QUOTES, 'UTF-8') ?>
+              </div>
+              <div class="club-sidebar-meta">
+                <?= $memberCount ?> membre<?= $memberCount > 1 ? 's' : '' ?> •
+                <?= $clubBooksCount ?> livre<?= $clubBooksCount > 1 ? 's' : '' ?>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav class="club-nav" aria-label="Navigation du club">
+          <button
+            type="button"
+            class="club-nav-link is-active"
+            data-panel="members"
+          >
+            <span class="club-nav-label">Membres</span>
+            <span class="club-nav-badge"><?= $memberCount ?></span>
+          </button>
+
+          <button
+            type="button"
+            class="club-nav-link"
+            data-panel="books"
+          >
+            <span class="club-nav-label">Livres</span>
+            <span class="club-nav-badge"><?= $clubBooksCount ?></span>
+          </button>
+
+          <button
+            type="button"
+            class="club-nav-link"
+            data-panel="messages"
+          >
+            <span class="club-nav-label">Messages</span>
+          </button>
+        </nav>
+      </aside>
+
+      <!-- CONTENU VARIABLE À DROITE -->
+      <div class="club-content">
+
+        <!-- PANEL MEMBRES -->
+        <section
+          id="panel-members"
+          class="club-panel is-active"
+          aria-label="Membres du club"
+        >
+          <header class="club-panel-header">
+            <h2 class="club-subtitle">Membres du club</h2>
+            <span class="club-panel-counter">
+              <?= $memberCount ?> membre<?= $memberCount > 1 ? 's' : '' ?>
+            </span>
+          </header>
+
+          <?php if (!$members): ?>
+            <p>Aucun membre pour le moment.</p>
+          <?php else: ?>
+            <ul class="member-list">
+              <?php foreach ($members as $m): ?>
+                <li class="member-item">
+                  <div class="member-main">
+                    <?php if (!empty($m['has_avatar'])): ?>
+                      <img
+                        src="avatar.php?id=<?= (int)$m['id'] ?>"
+                        alt="Avatar de <?= htmlspecialchars($m['login'], ENT_QUOTES, 'UTF-8') ?>"
+                        class="member-avatar"
+                      >
+                    <?php else: ?>
+                      <div class="member-avatar member-avatar-fallback">
+                        <?= strtoupper(substr($m['login'], 0, 1)) ?>
+                      </div>
+                    <?php endif; ?>
+                    <div>
+                      <div class="member-name">
+                        <?= htmlspecialchars($m['login'], ENT_QUOTES, 'UTF-8') ?>
+                        <?php if ($m['role'] === 'owner'): ?>
+                          <span class="badge badge-owner">Créateur</span>
+                        <?php endif; ?>
+                      </div>
+                      <div class="member-meta">
+                        Membre depuis le <?= htmlspecialchars(date('d/m/Y', strtotime($m['joined_at'])), ENT_QUOTES, 'UTF-8') ?>
+                      </div>
                     </div>
                   </div>
+
+                  <?php if ($club['my_role'] === 'owner' && $m['role'] !== 'owner' && $m['id'] !== $userId): ?>
+                    <button
+                      type="button"
+                      class="btn btn-ghost js-remove-member"
+                      data-user-id="<?= (int)$m['id'] ?>"
+                    >Retirer</button>
+                  <?php endif; ?>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
+
+          <?php if ($club['my_role'] === 'owner'): ?>
+            <div class="card club-invite-card">
+              <h3>Inviter un ami au club</h3>
+              <?php if (!$invitableFriends): ?>
+                <p class="club-invite-empty">
+                  Aucun ami disponible à inviter (ils sont peut-être déjà tous membres !).
+                </p>
+              <?php else: ?>
+                <div class="club-invite-row">
+                  <select id="invite-friend-select">
+                    <?php foreach ($invitableFriends as $f): ?>
+                      <option value="<?= (int)$f['id'] ?>">
+                        <?= htmlspecialchars($f['login'], ENT_QUOTES, 'UTF-8') ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <button type="button" class="btn btn-primary" id="invite-friend-btn">Inviter</button>
                 </div>
-                <button
-                  type="button"
-                  class="btn btn-ghost js-remove-book"
-                  data-google-book-id="<?= htmlspecialchars($b['google_book_id'], ENT_QUOTES, 'UTF-8') ?>"
-                >Retirer</button>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-        <?php endif; ?>
+                <p id="invite-friend-feedback" class="club-invite-feedback">
+                  Invitation envoyée.
+                </p>
+              <?php endif; ?>
+            </div>
+          <?php endif; ?>
+        </section>
 
-        <div class="card" style="margin-top:16px; padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb;">
-          <h3 style="margin:0 0 6px; font-size:.98rem;">Ajouter un livre depuis ma bibliothèque</h3>
+        <!-- PANEL LIVRES -->
+        <section
+          id="panel-books"
+          class="club-panel"
+          aria-label="Livres du club"
+        >
+          <header class="club-panel-header">
+            <h2 class="club-subtitle">Livres du club</h2>
+            <span class="club-panel-counter">
+              <?= $clubBooksCount ?> livre<?= $clubBooksCount > 1 ? 's' : '' ?>
+            </span>
+          </header>
 
-          <?php if (!$userLibrary): ?>
-            <p style="margin:0; font-size:.85rem; color:#6b7280;">
-              Vous n'avez encore aucun livre dans votre bibliothèque. Ajoutez-en d'abord pour les partager avec le club.
-            </p>
+          <?php if (!$clubBooks): ?>
+            <p>Aucun livre n’a encore été ajouté à ce club.</p>
           <?php else: ?>
-            <p style="margin:0 0 6px; font-size:.85rem; color:#6b7280;">
-              Cliquez sur « Ajouter au club » pour partager un de vos livres avec les membres.
-            </p>
-            <ul class="lib-list">
-              <?php foreach ($userLibrary as $book): ?>
+            <ul class="book-list">
+              <?php foreach ($clubBooks as $b): ?>
                 <?php
-                  $title   = $book['title'] ?: 'Titre inconnu';
-                  $authors = $book['authors'] ?: 'Auteur inconnu';
-                  $thumb   = $book['thumbnail'] ?: "https://via.placeholder.com/80x120?text=Pas+d'image";
+                  $title    = $b['title'] ?: 'Titre inconnu';
+                  $authors  = $b['authors'] ?: 'Auteur inconnu';
+                  $thumb    = $b['thumbnail'] ?: "https://via.placeholder.com/80x120?text=Pas+d'image";
+                  $addedAt  = $b['added_at'] ?? null;
                 ?>
-                <li class="lib-item">
-                  <div class="lib-main">
+                <li class="book-item">
+                  <div class="book-main">
                     <img
                       src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
                       alt="Couverture du livre"
-                      class="lib-cover"
+                      class="book-cover"
                     >
                     <div>
                       <div class="book-title">
@@ -749,81 +859,638 @@ include __DIR__ . '/include/header.inc.php';
                       <div class="book-authors">
                         <?= htmlspecialchars($authors, ENT_QUOTES, 'UTF-8') ?>
                       </div>
-                      <small class="book-meta-small">
-                        Ajouté à votre bibliothèque le <?= htmlspecialchars(date('d/m/Y', strtotime($book['added_at'])), ENT_QUOTES, 'UTF-8') ?>
-                      </small>
+                      <div class="book-meta-small">
+                        <?php if ($addedAt): ?>
+                          Ajouté le <?= htmlspecialchars(date('d/m/Y', strtotime($addedAt)), ENT_QUOTES, 'UTF-8') ?>
+                        <?php endif; ?>
+                        • <a
+                            href="https://books.google.com/books?id=<?= urlencode($b['google_book_id']) ?>"
+                            target="_blank"
+                            rel="noopener"
+                          >
+                            Voir sur Google Books
+                          </a>
+                      </div>
                     </div>
                   </div>
                   <button
                     type="button"
-                    class="btn btn-primary js-add-book"
-                    data-google-book-id="<?= htmlspecialchars($book['google_book_id'], ENT_QUOTES, 'UTF-8') ?>"
-                  >Ajouter au club</button>
+                    class="btn btn-ghost js-remove-book"
+                    data-google-book-id="<?= htmlspecialchars($b['google_book_id'], ENT_QUOTES, 'UTF-8') ?>"
+                  >Retirer</button>
                 </li>
               <?php endforeach; ?>
             </ul>
           <?php endif; ?>
-        </div>
-      </section>
-    </div>
 
-    <!-- Section messages -->
-    <section style="margin-top:26px;">
-      <h2 class="club-subtitle">Messages du club</h2>
+          <div class="card club-library-card">
+            <h3>Ajouter un livre depuis ma bibliothèque</h3>
 
-      <div class="card" style="padding:12px 14px; border-radius:14px; border:1px solid #e5e7eb;">
-        <div class="messages-box" id="messages-box">
-          <?php if (!$messages): ?>
-            <p style="font-size:.9rem; color:#6b7280;">Aucun message pour le moment. Lancez la discussion !</p>
-          <?php else: ?>
-            <?php foreach ($messages as $msg): ?>
-              <div class="message-item <?= ($msg['user_id'] == $userId ? 'message-me' : '') ?>">
-                <div class="message-header">
-                  <?php if (!empty($msg['avatar'])): ?>
-                    <img src="uploads/avatars/<?= htmlspecialchars($msg['avatar'], ENT_QUOTES, 'UTF-8') ?>" alt="" class="message-avatar">
-                  <?php else: ?>
-                    <div class="message-avatar message-avatar-fallback">
-                      <?= strtoupper(substr($msg['login'], 0, 1)) ?>
+            <?php if (!$userLibrary): ?>
+              <p class="club-library-empty">
+                Vous n'avez encore aucun livre dans votre bibliothèque. Ajoutez-en d'abord pour les partager avec le club.
+              </p>
+            <?php else: ?>
+              <p class="club-library-helper">
+                Cliquez sur « Ajouter au club » pour partager un de vos livres avec les membres.
+              </p>
+              <ul class="lib-list">
+                <?php foreach ($userLibrary as $book): ?>
+                  <?php
+                    $title   = $book['title'] ?: 'Titre inconnu';
+                    $authors = $book['authors'] ?: 'Auteur inconnu';
+                    $thumb   = $book['thumbnail'] ?: "https://via.placeholder.com/80x120?text=Pas+d'image";
+                  ?>
+                  <li class="lib-item">
+                    <div class="lib-main">
+                      <img
+                        src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
+                        alt="Couverture du livre"
+                        class="lib-cover"
+                      >
+                      <div>
+                        <div class="book-title">
+                          <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
+                        </div>
+                        <div class="book-authors">
+                          <?= htmlspecialchars($authors, ENT_QUOTES, 'UTF-8') ?>
+                        </div>
+                        <small class="book-meta-small">
+                          Ajouté à votre bibliothèque le <?= htmlspecialchars(date('d/m/Y', strtotime($book['added_at'])), ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+                      </div>
                     </div>
-                  <?php endif; ?>
-                  <div class="message-meta">
-                    <span class="message-author">
-                      <?= htmlspecialchars($msg['login'], ENT_QUOTES, 'UTF-8') ?>
-                      <?php if ($msg['user_id'] == $userId): ?>
-                        <span class="badge badge-me">Moi</span>
+                    <button
+                      type="button"
+                      class="btn btn-primary js-add-book"
+                      data-google-book-id="<?= htmlspecialchars($book['google_book_id'], ENT_QUOTES, 'UTF-8') ?>"
+                    >Ajouter au club</button>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+          </div>
+        </section>
+
+        <!-- PANEL MESSAGES -->
+        <section
+          id="panel-messages"
+          class="club-panel"
+          aria-label="Messages du club"
+        >
+          <header class="club-panel-header">
+            <h2 class="club-subtitle">Messages du club</h2>
+          </header>
+
+          <div class="card club-messages-card">
+            <div class="messages-box" id="messages-box">
+              <?php if (!$messages): ?>
+                <p class="club-messages-empty">Aucun message pour le moment. Lancez la discussion !</p>
+              <?php else: ?>
+                <?php foreach ($messages as $msg): ?>
+                  <div class="message-item <?= ($msg['user_id'] == $userId ? 'message-me' : '') ?>">
+                    <div class="message-header">
+                      <?php if (!empty($msg['has_avatar'])): ?>
+                        <img
+                          src="avatar.php?id=<?= (int)$msg['user_id'] ?>"
+                          alt="Avatar de <?= htmlspecialchars($msg['login'], ENT_QUOTES, 'UTF-8') ?>"
+                          class="message-avatar"
+                        >
+                      <?php else: ?>
+                        <div class="message-avatar message-avatar-fallback">
+                          <?= strtoupper(substr($msg['login'], 0, 1)) ?>
+                        </div>
                       <?php endif; ?>
-                    </span>
-                    <span class="message-date">
-                      <?= htmlspecialchars(date('d/m/Y H:i', strtotime($msg['created_at'])), ENT_QUOTES, 'UTF-8') ?>
-                    </span>
+                      <div class="message-meta">
+                        <span class="message-author">
+                          <?= htmlspecialchars($msg['login'], ENT_QUOTES, 'UTF-8') ?>
+                          <?php if ($msg['user_id'] == $userId): ?>
+                            <span class="badge badge-me">Moi</span>
+                          <?php endif; ?>
+                        </span>
+                        <span class="message-date">
+                          <?= htmlspecialchars(date('d/m/Y H:i', strtotime($msg['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="message-content">
+                      <?= nl2br(htmlspecialchars($msg['content'], ENT_QUOTES, 'UTF-8')) ?>
+                    </div>
                   </div>
-                </div>
-                <div class="message-content">
-                  <?= nl2br(htmlspecialchars($msg['content'], ENT_QUOTES, 'UTF-8')) ?>
-                </div>
-              </div>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
 
-        <?php if ($messageError): ?>
-          <p style="margin:8px 0 0; font-size:.85rem; color:#dc2626;">
-            <?= htmlspecialchars($messageError, ENT_QUOTES, 'UTF-8') ?>
-          </p>
-        <?php endif; ?>
+            <?php if ($messageError): ?>
+              <p class="club-messages-error">
+                <?= htmlspecialchars($messageError, ENT_QUOTES, 'UTF-8') ?>
+              </p>
+            <?php endif; ?>
 
-        <form method="post" style="margin-top:10px; display:grid; gap:6px;">
-          <label for="club_message" style="font-size:.9rem;">Écrire un message :</label>
-          <textarea id="club_message" name="club_message" rows="3" required></textarea>
-          <button type="submit" class="btn btn-primary" style="align-self:flex-start;">Envoyer</button>
-        </form>
+            <form method="post" class="club-messages-form">
+              <label for="club_message" style="font-size:.9rem;">Écrire un message :</label>
+              <textarea id="club_message" name="club_message" rows="3" required></textarea>
+              <button type="submit" class="btn btn-primary" style="align-self:flex-start;">Envoyer</button>
+            </form>
+          </div>
+        </section>
+
       </div>
-    </section>
+    </div>
 
   </div>
 </section>
 
 <?php include __DIR__ . '/include/footer.inc.php'; ?>
+
+<style>
+  .club-page {
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  .club-header {
+    padding:18px 22px;
+    border-radius:16px;
+    border:1px solid #e5e7eb;
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+
+  .club-header-main {
+    flex:1;
+    min-width:260px;
+  }
+
+  .club-header-title {
+    margin-bottom:4px;
+  }
+
+  .club-header-description {
+    margin:4px 0 6px;
+    color:#4b5563;
+  }
+
+  .club-header-description-muted {
+    color:#9ca3af;
+    font-style:italic;
+  }
+
+  .club-header-meta {
+    margin:0;
+    font-size:.85rem;
+    color:#6b7280;
+  }
+
+  .club-header-meta-small {
+    margin:2px 0 0;
+    font-size:.8rem;
+    color:#9ca3af;
+  }
+
+  .club-header-alert {
+    margin:6px 0 0;
+    font-size:.85rem;
+    color:#b91c1c;
+  }
+
+  .club-header-error {
+    margin-top:8px;
+    font-size:.85rem;
+    color:#dc2626;
+  }
+
+  .club-header-actions {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  .club-btn-danger-soft {
+    background:#fee2e2;
+    color:#b91c1c;
+  }
+
+  .club-btn-danger {
+    background:#dc2626;
+    color:#fff;
+  }
+
+  /* Layout principal */
+  .club-layout-shell {
+    display:grid;
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+    gap:18px;
+    align-items:start;
+  }
+
+  @media (max-width: 768px) {
+    .club-layout-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Sidebar */
+  .club-sidebar {
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .club-sidebar-card {
+    background:#f9fafb;
+    border-radius:14px;
+    border:1px solid #e5e7eb;
+    padding:12px 14px;
+  }
+
+  .club-sidebar-header {
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+
+  .club-sidebar-icon-lg {
+    width:40px;
+    height:40px;
+    border-radius:999px;
+    background:#5f7f5f;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.4rem;
+  }
+
+  .club-sidebar-title {
+    font-weight:600;
+    font-size:.95rem;
+    color:#111827;
+  }
+
+  .club-sidebar-meta {
+    font-size:.8rem;
+    color:#6b7280;
+  }
+
+  /* Nav */
+  .club-nav {
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  .club-nav-link {
+    border:none;
+    border-radius:999px;
+    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    font-size:.9rem;
+    background:transparent;
+    cursor:pointer;
+    color:#374151;
+    transition:background .15s ease, color .15s ease, transform .1s ease;
+  }
+
+  .club-nav-link:hover {
+    background:#f3f4f6;
+    transform:translateX(1px);
+  }
+
+  .club-nav-link.is-active {
+    background:#5f7f5f;
+    color:#f9fafb;
+  }
+
+  .club-nav-label {
+    font-weight:500;
+  }
+
+  .club-nav-badge {
+    min-width:22px;
+    padding:1px 6px;
+    border-radius:999px;
+    font-size:.75rem;
+    text-align:center;
+    background:#e5e7eb;
+    color:#374151;
+  }
+
+  .club-nav-link.is-active .club-nav-badge {
+    background:#facc15;
+    color:#92400e;
+  }
+
+  /* Contenu à droite */
+  .club-content {
+    background:#fff;
+    border-radius:16px;
+    border:1px solid #e5e7eb;
+    padding:14px 16px 18px;
+  }
+
+  .club-panel {
+    display:none;
+  }
+
+  .club-panel.is-active {
+    display:block;
+  }
+
+  .club-panel-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:10px;
+  }
+
+  .club-subtitle {
+    margin:0;
+    font-size:1.05rem;
+  }
+
+  .club-panel-counter {
+    font-size:.8rem;
+    color:#6b7280;
+  }
+
+  /* Listes */
+  .book-list,
+  .lib-list,
+  .member-list {
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+
+  .book-item,
+  .lib-item,
+  .member-item {
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 0;
+    border-bottom:1px solid #f3f4f6;
+  }
+
+  .member-main {
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  .member-avatar {
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    object-fit:cover;
+  }
+  .member-avatar-fallback {
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:#5f7f5f;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .member-name {
+    font-weight:600;
+  }
+  .member-meta {
+    font-size:.8rem;
+    color:#6b7280;
+  }
+  .badge-owner {
+    display:inline-block;
+    margin-left:6px;
+    padding:2px 6px;
+    font-size:.7rem;
+    border-radius:999px;
+    background:#facc15;
+    color:#92400e;
+  }
+
+  /* Livres */
+  .book-main,
+  .lib-main {
+    display:flex;
+    gap:10px;
+  }
+  .book-cover,
+  .lib-cover {
+    width:42px;
+    height:62px;
+    object-fit:cover;
+    border-radius:6px;
+    background:#e5e7eb;
+    flex-shrink:0;
+  }
+  .book-title {
+    font-size:.95rem;
+    font-weight:600;
+    margin-bottom:2px;
+  }
+  .book-authors {
+    font-size:.8rem;
+    color:#6b7280;
+  }
+  .book-meta-small {
+    font-size:.75rem;
+    color:#9ca3af;
+  }
+
+  /* Cartes secondaires */
+  .club-invite-card,
+  .club-library-card,
+  .club-messages-card {
+    margin-top:14px;
+    padding:10px 12px 12px;
+    border-radius:12px;
+    border:1px solid #e5e7eb;
+  }
+
+  .club-invite-card h3,
+  .club-library-card h3 {
+    margin-top:0;
+    margin-bottom:6px;
+    font-size:.98rem;
+  }
+
+  .club-invite-row {
+    display:flex;
+    gap:8px;
+    margin-top:6px;
+  }
+
+  .club-invite-row select {
+    flex:1;
+  }
+
+  .club-invite-feedback {
+    margin:6px 0 0;
+    font-size:.8rem;
+    color:#16a34a;
+    display:none;
+  }
+
+  .club-invite-empty,
+  .club-library-empty,
+  .club-library-helper {
+    margin:0;
+    font-size:.85rem;
+    color:#6b7280;
+  }
+
+  .club-library-helper {
+    margin-bottom:6px;
+  }
+
+  /* Messages */
+  .messages-box {
+    max-height:360px;
+    overflow-y:auto;
+    padding-right:6px;
+    border-radius:10px;
+    background:#f9fafb;
+    border:1px solid #e5e7eb;
+  }
+  .message-item {
+    border-bottom:1px solid #f3f4f6;
+    padding:8px 10px;
+  }
+  .message-item:last-child {
+    border-bottom:none;
+  }
+  .message-header {
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .message-avatar {
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    object-fit:cover;
+  }
+  .message-avatar-fallback {
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    background:#5f7f5f;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:.85rem;
+  }
+  .message-meta {
+    font-size:.8rem;
+  }
+  .message-author {
+    font-weight:600;
+  }
+  .message-date {
+    display:block;
+    font-size:.75rem;
+    color:#9ca3af;
+  }
+  .message-content {
+    margin-left:40px;
+    font-size:.9rem;
+    margin-top:4px;
+  }
+  .badge-me {
+    margin-left:4px;
+    font-size:.7rem;
+    background:#d1fae5;
+    color:#047857;
+    padding:1px 6px;
+    border-radius:999px;
+  }
+  .message-me .message-content {
+    background:#f0fdf4;
+    border-radius:8px;
+    padding:4px 8px;
+  }
+
+  .club-messages-empty {
+    font-size:.9rem;
+    color:#6b7280;
+    padding:8px 10px;
+  }
+
+  .club-messages-error {
+    margin:8px 0 0;
+    font-size:.85rem;
+    color:#dc2626;
+  }
+
+  .club-messages-form {
+    margin-top:10px;
+    display:grid;
+    gap:6px;
+  }
+
+  .club-messages-form textarea {
+    resize:vertical;
+  }
+
+  /* Mode nuit */
+  body.nuit .club-header,
+  body.nuit .club-content,
+  body.nuit .club-sidebar-card {
+    background:#111827;
+    border-color:#374151;
+    color:#e5e7eb;
+  }
+  body.nuit .club-header-description {
+    color:#e5e7eb;
+  }
+  body.nuit .club-header-description-muted {
+    color:#9ca3af;
+  }
+  body.nuit .club-sidebar-icon-lg {
+    background:#3b82f6;
+  }
+  body.nuit .club-sidebar-title {
+    color:#f9fafb;
+  }
+  body.nuit .club-sidebar-meta,
+  body.nuit .club-header-meta,
+  body.nuit .club-header-meta-small,
+  body.nuit .club-panel-counter {
+    color:#9ca3af;
+  }
+  body.nuit .club-content {
+    background:#020617;
+  }
+  body.nuit .club-nav-link {
+    color:#e5e7eb;
+  }
+  body.nuit .club-nav-link:hover {
+    background:#1f2937;
+  }
+  body.nuit .club-nav-badge {
+    background:#1f2937;
+    color:#e5e7eb;
+  }
+  body.nuit .messages-box {
+    background:#020617;
+    border-color:#1f2937;
+  }
+  body.nuit .message-item {
+    border-color:#111827;
+  }
+</style>
 
 <script>
 (function() {
@@ -912,16 +1579,55 @@ include __DIR__ . '/include/header.inc.php';
         if (res.ok) {
           btn.closest('.book-item')?.remove();
         } else {
-          alert("Impossible de retirer ce livre du club.");
+          alert("Impossible de retirer ce livre.");
         }
       });
     });
   });
 
-  // Scroll en bas de la zone de messages à l'ouverture
+  // Scroll en bas de la zone de messages à l'ouverture (si panel messages actif)
   const box = document.getElementById('messages-box');
   if (box) {
     box.scrollTop = box.scrollHeight;
   }
+
+  // Tabs : Membres / Livres / Messages
+  const tabButtons = document.querySelectorAll('.club-nav-link[data-panel]');
+  const panels = document.querySelectorAll('.club-panel');
+
+  function activatePanel(panelName) {
+    panels.forEach(p => {
+      if (p.id === 'panel-' + panelName) {
+        p.classList.add('is-active');
+      } else {
+        p.classList.remove('is-active');
+      }
+    });
+
+    tabButtons.forEach(btn => {
+      if (btn.dataset.panel === panelName) {
+        btn.classList.add('is-active');
+      } else {
+        btn.classList.remove('is-active');
+      }
+    });
+
+    // Si on active le panel messages, scroll en bas
+    if (panelName === 'messages' && box) {
+      setTimeout(() => {
+        box.scrollTop = box.scrollHeight;
+      }, 50);
+    }
+  }
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.panel;
+      if (!target) return;
+      activatePanel(target);
+    });
+  });
+
+  // Par défaut : on affiche Membres (déjà actif via classe is-active)
 })();
 </script>
