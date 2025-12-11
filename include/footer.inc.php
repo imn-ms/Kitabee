@@ -46,7 +46,8 @@
   </div>
 
   <div class="footer-bottom">
-    <p>© <?= date('Y') ?> — Fait par <strong>MOUSSAOUI Imane</strong> & <strong>TRIOLLET-PEREIRA Odessa</strong>.  
+    <p>© <?= date('Y') ?> — Fait par <strong>MOUSSAOUI Imane</strong> & 
+      <strong>TRIOLLET-PEREIRA Odessa</strong>.  
       Tous droits réservés.</p>
   </div>
 </footer>
@@ -60,15 +61,18 @@
     ddg:    { action: 'https://duckduckgo.com/',       param: 'q' },
     qwant:  { action: 'https://www.qwant.com/',        param: 'q' },
   };
+
   const form = document.getElementById('searchForm');
   const engineSelect = document.getElementById('engine');
   const queryInput = document.getElementById('q');
+
   function applyEngine() {
     if (!form || !engineSelect || !queryInput) return;
     const { action, param } = ENGINES[engineSelect.value];
     form.action = action;
     queryInput.name = param;
   }
+
   if (engineSelect) {
     engineSelect.addEventListener('change', applyEngine);
     applyEngine();
@@ -78,12 +82,16 @@
   (function() {
     const backToTop = document.getElementById('backToTop');
     if (!backToTop) return;
+
     const SHOW_AFTER = 200; // px
+
     function toggleBackToTop() {
       backToTop.style.display = (window.scrollY > SHOW_AFTER) ? 'block' : 'none';
     }
+
     window.addEventListener('scroll', toggleBackToTop, { passive: true });
     window.addEventListener('load', toggleBackToTop);
+
     backToTop.addEventListener('click', function(e) {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -93,4 +101,57 @@
 
 <a href="#top" id="backToTop" class="back-to-top" aria-label="Revenir en haut">↑</a>
 
+<!-- === Script Accessibilité A- A A+ === -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const buttons = document.querySelectorAll('.font-btn');
+  const body = document.body;
 
+  // Récupérer la préférence enregistrée
+  const savedFont = localStorage.getItem('kitabee_font_size') || 'normal';
+
+  // Appliquer la classe au body
+  applyFontClass(savedFont);
+
+  // Marquer le bon bouton comme actif
+  updateActiveButton(savedFont);
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', function () {
+      const size = this.getAttribute('data-font');
+      applyFontClass(size);
+      updateActiveButton(size);
+      localStorage.setItem('kitabee_font_size', size);
+    });
+  });
+
+  function applyFontClass(size) {
+    body.classList.remove('font-small', 'font-normal', 'font-large');
+    switch (size) {
+      case 'small':
+        body.classList.add('font-small');
+        break;
+      case 'large':
+        body.classList.add('font-large');
+        break;
+      default:
+        body.classList.add('font-normal');
+    }
+  }
+
+  function updateActiveButton(size) {
+    buttons.forEach(b => {
+      if (b.getAttribute('data-font') === size) {
+        b.classList.add('is-active');
+        b.setAttribute('aria-pressed', 'true');
+      } else {
+        b.classList.remove('is-active');
+        b.setAttribute('aria-pressed', 'false');
+      }
+    });
+  }
+});
+</script>
+
+</body>
+</html>

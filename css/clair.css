@@ -1943,3 +1943,50 @@ body.nuit .club-meta {
   font-size: .9rem;
   color: var(--muted-ink);
 }
+/* ====== Accessibilité : taille de police ====== */
+
+body {
+  font-size: 16px;
+}
+
+/* Classes appliquées au <body> */
+body.font-small {
+  font-size: 14px !important;
+}
+
+body.font-normal {
+  font-size: 16px !important;
+}
+
+body.font-large {
+  font-size: 19px !important;
+}
+
+/* Style des boutons A- A A+ */
+.accessibility-tools {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.font-btn {
+  border: 1px solid rgba(0,0,0,.15);
+  background: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.font-btn:hover,
+.font-btn:focus {
+  outline: none;
+  border-color: #555;
+}
+
+.font-btn.is-active {
+  background: #111;
+  color: #fff;
+}
+
