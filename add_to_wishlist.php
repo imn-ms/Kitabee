@@ -1,6 +1,6 @@
 <?php
 session_start();
-require __DIR__ . '/private/config.php';
+require __DIR__ . '/secret/config.php';
 require_once __DIR__ . '/classes/BadgeManager.php';
 
 if (!isset($_SESSION['user'])) {

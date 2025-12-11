@@ -2,8 +2,8 @@
 header('Content-Type: text/html; charset=UTF-8');
 $pageTitle = "Détail du livre - Kitabee";
 
-include 'include/header.inc.php';           // définit $loggedUserId via la session
-include __DIR__ . '/private/config.php';    // définit $pdo et $GOOGLE_API_KEY
+include 'include/header.inc.php';
+include __DIR__ . '/secret/config.php';
 
 $id = isset($_GET['id']) ? trim($_GET['id']) : '';
 

@@ -12,7 +12,7 @@ if (empty($_SESSION['user'])) {
 }
 $userId = (int) $_SESSION['user'];
 
-require_once __DIR__ . '/private/config.php';
+require_once __DIR__ . '/secret/config.php';
 require_once __DIR__ . '/classes/RecommendationService.php';
 
 $apiKey  = defined('GOOGLE_BOOKS_API_KEY') ? GOOGLE_BOOKS_API_KEY : null;

@@ -1,9 +1,9 @@
 <?php
 // ======= CONNEXION À LA BASE DE DONNÉES =======
-$host = 'mysql-kitabee.alwaysdata.net';   // Hôte de la base de données
-$dbname = 'kitabee_db';                   // Nom de la base de données
-$username = 'kitabee';                    // Nom d'utilisateur de la base de données
-$password = 'Imane2005';                  // Mot de passe de la base de données
+$host = 'mysql-kitabee.alwaysdata.net';
+$dbname = 'kitabee_db';
+$username = 'kitabee';
+$password = 'Imane2005';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
@@ -13,13 +13,12 @@ try {
 }
 
 // ======= CONFIGURATION SMTP (AlwaysData) =======
-$mail_host = 'smtp-kitabee.alwaysdata.net';       // Serveur SMTP AlwaysData
-$mail_port = 587;                                 // Port 587 avec STARTTLS
-$mail_username = 'kitabee@alwaysdata.net';        // Ton adresse e-mail AlwaysData
-$mail_password = 'Imane2005';                     // Mot de passe de cette adresse mail
-$mail_from = 'kitabee@alwaysdata.net';            // Expéditeur
-$mail_from_name = 'Kitabee';                      // Nom affiché dans les e-mails
-$site_base_url = 'https://kitabee.alwaysdata.net'; // URL de ton site
+$mail_host = 'smtp-kitabee.alwaysdata.net';
+$mail_port = 587;
+$mail_username = 'kitabee@alwaysdata.net';
+$mail_from = 'kitabee@alwaysdata.net';
+$mail_from_name = 'Kitabee';
+$site_base_url = 'https://kitabee.alwaysdata.net';
 
 // ======= IMPORT DE PHPMailer =======
 use PHPMailer\PHPMailer\PHPMailer;

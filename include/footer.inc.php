@@ -10,7 +10,7 @@
         <span class="brand-name">Kitabee</span>
       </div>
       <?php if (!empty($last_visit)): ?>
-        <p class="footer-info">Dernière visite : <?= htmlspecialchars($last_visit, ENT_QUOTES, 'UTF-8') ?></p>èu_
+        <p class="footer-info">Dernière visite : <?= htmlspecialchars($last_visit, ENT_QUOTES, 'UTF-8') ?></p>
       <?php endif; ?>
     </div>
 

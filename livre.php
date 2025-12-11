@@ -11,7 +11,7 @@ if (!$visited) {
 
 $pageTitle = "Résultats de recherche - Kitabee";
 include 'include/header.inc.php';
-include __DIR__ . '/private/config.php';
+include __DIR__ . '/secret/config.php';
 
 $query = isset($_GET['q']) ? trim($_GET['q']) : '';
 
