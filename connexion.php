@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // récupérer l'utilisateur en BD
             $stmt = $pdo->prepare('
-                SELECT id, login, password, is_active, avatar, avatar_type
+                SELECT id, login, password, is_active, avatar_choice
                 FROM users
                 WHERE login = :login
                 LIMIT 1
