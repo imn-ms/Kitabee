@@ -34,7 +34,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  font-size: 16px; 
+  font-size: 16px;
 }
 
 img, svg, video, canvas {
@@ -140,14 +140,12 @@ a {
   opacity: 1;
 }
 
-/* Nav principale desktop */
 .main-nav {
   display: flex;
   gap: 20px;
   align-items: center;
 }
 
-/* Liens du menu : trait vert au survol */
 .main-nav a {
   position: relative;
   padding: 0;
@@ -158,7 +156,7 @@ a {
   color: var(--ink);
 }
 
-/* si le HTML garde class="chip" sur les liens du menu */
+
 .main-nav a.chip {
   padding: 0 !important;
   border: none !important;
@@ -647,9 +645,7 @@ a {
   z-index: 20;
 }
 
-.back-to-top {
-  padding-top: 2px;
-}
+.back-to-top { padding-top: 2px; }
 
 .back-to-top:hover { background: var(--brand-dark); }
 #backToTop { display: none; }
@@ -805,85 +801,60 @@ body.font-large  { font-size: 19px !important; }
   margin-bottom: 4px;
 }
 
-/* Étoiles interactives */
 .rating-widget {
-  --stroke: #666;
-  --fill: #ffc73a;
+  --stroke-color: #666;
+  --fill-color: #ffc73a;
   display: flex;
   flex-direction: row-reverse;
   gap: 0.3rem;
+  align-items: center;
 }
+
 .rating-widget input {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
 }
-.rating-widget label { cursor: pointer; }
+
+.rating-widget label {
+  cursor: pointer;
+  line-height: 0;
+  display: inline-flex;
+}
+
+
+.rating-widget label {
+  color: var(--stroke-color);
+}
 
 .rating-widget svg {
   width: 2rem;
   height: 2rem;
   overflow: visible;
-  fill: transparent;
-  stroke: var(--stroke);
-  stroke-linejoin: bevel;
-  stroke-dasharray: 12;
-  animation: rating-idle 4s linear infinite;
-  transition: stroke 0.2s, fill 0.5s, transform .2s;
+  transition: transform .2s ease, opacity .2s ease, filter .2s ease;
 }
 
-@keyframes rating-idle {
-  from { stroke-dashoffset: 24; }
+
+.rating-widget label:hover,
+.rating-widget label:hover ~ label {
+  color: var(--fill-color);
+}
+
+
+.rating-widget input:checked ~ label {
+  color: var(--fill-color);
+}
+
+.rating-widget input:checked ~ label svg {
+  transform: scale(1.05);
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.12));
 }
 
 .rating-widget label:hover svg,
 .rating-widget label:hover ~ label svg {
-  stroke: var(--fill);
+  transform: scale(1.08);
 }
 
-.rating-widget input:checked ~ label svg {
-  transition: 0s;
-  animation: rating-idle 4s linear infinite, rating-yippee 0.75s backwards;
-  fill: var(--fill);
-  stroke: var(--fill);
-  stroke-opacity: 0;
-  stroke-dasharray: 0;
-  stroke-linejoin: miter;
-  stroke-width: 8px;
-}
-
-@keyframes rating-yippee {
-  0% {
-    transform: scale(1);
-    fill: var(--fill);
-    fill-opacity: 0;
-    stroke-opacity: 1;
-    stroke: var(--stroke);
-    stroke-dasharray: 10;
-    stroke-width: 1px;
-    stroke-linejoin: bevel;
-  }
-  30% {
-    transform: scale(0);
-    fill: var(--fill);
-    fill-opacity: 0;
-    stroke-opacity: 1;
-    stroke: var(--stroke);
-    stroke-dasharray: 10;
-    stroke-width: 1px;
-    stroke-linejoin: bevel;
-  }
-  30.1% {
-    stroke: var(--fill);
-    stroke-dasharray: 0;
-    stroke-linejoin: miter;
-    stroke-width: 8px;
-  }
-  60% { transform: scale(1.2); fill: var(--fill); }
-  100% { transform: scale(1); }
-}
-
-/* Commentaire perso */
 .personal-note .comment-input { margin-bottom: 10px; }
 
 .personal-note label[for="private_comment"] {
@@ -1662,8 +1633,16 @@ body.font-large  { font-size: 19px !important; }
 }
 .link-more:hover { text-decoration: underline; }
 
-/* ===================== RESPONSIVE ===================== */
+/* ======================================================
+   Google Translate 
+   ====================================================== */
+.VIpgJd-ZVi9od-aZ2wEe-Jt5cK,
+.VIpgJd-yAWNEb-hvhgNd .VIpgJd-yAWNEb-hvhgNd-THI6Vb {
+  filter: none;
+  opacity: 1;
+}
 
+/* ===================== RESPONSIVE ===================== */
 @media (max-width: 1024px) {
   .page-livre .book-list {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
@@ -1703,7 +1682,6 @@ body.font-large  { font-size: 19px !important; }
   .contact-grid { grid-template-columns: 1fr; }
   .contact-card, .contact-aside { border-radius: 16px; }
 }
-
 
 @media (max-width: 800px) {
   .page-livre .book-list {

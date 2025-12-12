@@ -645,9 +645,7 @@ a {
   z-index: 20;
 }
 
-.back-to-top {
-  padding-top: 2px;
-}
+.back-to-top { padding-top: 2px; }
 .back-to-top:hover { background: var(--brand-dark); }
 #backToTop { display: none; }
 
@@ -778,7 +776,7 @@ body.font-large  { font-size: 19px !important; }
   font-size: .95rem;
 }
 .rating-avg-text { font-weight: 600; color: var(--ink); }
-rating-count { font-size: .85rem; color: var(--muted-ink); }
+.rating-count { font-size: .85rem; color: var(--muted-ink); } 
 .rating-avg-empty { color: var(--muted-ink); }
 .rating-stars { font-size: 1.1rem; color: #fbbf24; }
 
@@ -803,85 +801,56 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
   margin-bottom: 4px;
 }
 
-/* Étoiles interactives */
 .rating-widget {
-  --stroke: #b7c9be;
-  --fill: #ffc73a;
+  --stroke-color: #b7c9be;
+  --fill-color: #ffc73a;
+
   display: flex;
   flex-direction: row-reverse;
   gap: 0.3rem;
+  align-items: center;
 }
+
 .rating-widget input {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
 }
-.rating-widget label { cursor: pointer; }
+
+.rating-widget label {
+  cursor: pointer;
+  line-height: 0;
+  display: inline-flex;
+  color: var(--stroke-color);
+  transition: color .2s ease, transform .2s ease;
+}
 
 .rating-widget svg {
   width: 2rem;
   height: 2rem;
   overflow: visible;
-  fill: transparent;
-  stroke: var(--stroke);
-  stroke-linejoin: bevel;
-  stroke-dasharray: 12;
-  animation: rating-idle 4s linear infinite;
-  transition: stroke 0.2s, fill 0.5s, transform .2s;
+  transition: transform .2s ease, opacity .2s ease, filter .2s ease;
 }
 
-@keyframes rating-idle {
-  from { stroke-dashoffset: 24; }
+.rating-widget label:hover,
+.rating-widget label:hover ~ label {
+  color: var(--fill-color);
+}
+
+.rating-widget input:checked ~ label {
+  color: var(--fill-color);
+}
+
+.rating-widget input:checked ~ label svg {
+  transform: scale(1.05);
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.35));
 }
 
 .rating-widget label:hover svg,
 .rating-widget label:hover ~ label svg {
-  stroke: var(--fill);
+  transform: scale(1.08);
 }
 
-.rating-widget input:checked ~ label svg {
-  transition: 0s;
-  animation: rating-idle 4s linear infinite, rating-yippee 0.75s backwards;
-  fill: var(--fill);
-  stroke: var(--fill);
-  stroke-opacity: 0;
-  stroke-dasharray: 0;
-  stroke-linejoin: miter;
-  stroke-width: 8px;
-}
-
-@keyframes rating-yippee {
-  0% {
-    transform: scale(1);
-    fill: var(--fill);
-    fill-opacity: 0;
-    stroke-opacity: 1;
-    stroke: var(--stroke);
-    stroke-dasharray: 10;
-    stroke-width: 1px;
-    stroke-linejoin: bevel;
-  }
-  30% {
-    transform: scale(0);
-    fill: var(--fill);
-    fill-opacity: 0;
-    stroke-opacity: 1;
-    stroke: var(--stroke);
-    stroke-dasharray: 10;
-    stroke-width: 1px;
-    stroke-linejoin: bevel;
-  }
-  30.1% {
-    stroke: var(--fill);
-    stroke-dasharray: 0;
-    stroke-linejoin: miter;
-    stroke-width: 8px;
-  }
-  60% { transform: scale(1.2); fill: var(--fill); }
-  100% { transform: scale(1); }
-}
-
-/* Commentaire perso */
 .personal-note .comment-input { margin-bottom: 10px; }
 
 .personal-note label[for="private_comment"] {
@@ -1665,13 +1634,11 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
 .link-more:hover { text-decoration: underline; }
 
 /* ===================== RESPONSIVE ===================== */
-
 @media (max-width: 1024px) {
   .page-livre .book-list {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
-
 
 @media (max-width: 900px) {
   .menu-toggle { display: inline-flex; }
@@ -1702,19 +1669,16 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
   .club-layout-shell { grid-template-columns: 1fr; }
 }
 
-
 @media (max-width: 960px) {
   .contact-grid { grid-template-columns: 1fr; }
   .contact-card, .contact-aside { border-radius: 16px; }
 }
-
 
 @media (max-width: 800px) {
   .page-livre .book-list {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
-
 
 @media (max-width: 600px) {
   .brand-text { display: none; }
@@ -1731,7 +1695,6 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
   .book-detail { flex-direction: column; }
   .book-detail img { width: min(280px, 100%); }
 }
-
 
 @media (max-width: 520px) {
   .page-livre .book-list { grid-template-columns: 1fr !important; }
