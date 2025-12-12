@@ -204,6 +204,22 @@
       window.setTimeout(() => msg.remove(), 1000);
     }, 4000);
   }
+  
+/* Scripts Google Translate */
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+      pageLanguage: 'fr',
+      includedLanguages: 'fr,en,es',
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+    }, 'google_translate_element');
+  }
+
+  function toggleTranslate() {
+    const el = document.getElementById('google_translate_element');
+    el.style.display = (el.style.display === 'none' || el.style.display === "")
+      ? 'block'
+      : 'none';
+  }
 
   /* ========= Google Books : autocomplétion ========= */
   function initGoogleBooksAutocomplete() {

@@ -1,13 +1,24 @@
 <?php
 /**
  * index.php – Page d’accueil Kitabee
+ *
+ * Rôle :
+ * - Initialise la session + cookies de visite.
+ * - Affiche la page d'accueil (hero, features, catalogue).
+ * - Récupère une sélection dynamique de livres via Google Books.
+ * - Affiche le bandeau de consentement cookies.
  */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
 // 1) config d'abord (clé Google + BDD)
 require __DIR__ . '/secret/config.php';
 
+// Fonctions du projet (dont Google Books helper)
+require_once __DIR__ . '/include/functions.inc.php';
+
+// Cookie de session "visited"
 $visited = isset($_COOKIE['visited']);
 if (!$visited) {
   setcookie('visited', '1', 0, '/');
@@ -18,16 +29,36 @@ $pageTitle = "Accueil Kitabee";
 // 2) header après, pour utiliser $pageTitle
 include 'include/header.inc.php';
 
-// 3) petite sélection Google Books
-$googleBooks = [];
-$apiUrl = "https://www.googleapis.com/books/v1/volumes?q=subject:fiction&langRestrict=fr&maxResults=6&key={$GOOGLE_API_KEY}";
-$apiResponse = @file_get_contents($apiUrl);
-if ($apiResponse) {
-    $json = json_decode($apiResponse, true);
-    if (!empty($json['items'])) {
-        $googleBooks = $json['items'];
-    }
-}
+// =====================================================
+// Sélection dynamique Google Books (catalogue)
+// =====================================================
+
+$topics = [
+  'subject:fiction', 'subject:romance', 'subject:history', 'subject:fantasy',
+  'subject:thriller', 'subject:mystery', 'subject:biography', 'subject:poetry',
+  'subject:drama', 'subject:literary', 'subject:classic',
+
+  'subject:science', 'subject:philosophy', 'subject:psychology',
+  'subject:education', 'subject:religion', 'subject:travel', 'subject:art',
+  'subject:music', 'subject:architecture', 'subject:design', 'subject:photography',
+
+  'subject:comics', 'subject:graphic novels', 'subject:manga',
+
+  'subject:cooking', 'subject:health', 'subject:wellness', 'subject:business',
+  'subject:technology', 'subject:politics', 'subject:society', 'subject:law',
+  'subject:economics',
+
+  'subject:environment', 'subject:nature', 'subject:sport', 'subject:adventure',
+  'subject:science fiction', 'subject:horror'
+];
+
+$topic = $topics[array_rand($topics)];
+$start = rand(0, 25);
+
+// Appel via fonction 
+$googleBooks = kb_google_books_search($topic, $GOOGLE_API_KEY ?? null, 6, $start, 'fr');
+
+$topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $topic)[1] ?? 'inconnu'));
 ?>
 
 <!-- ===== HERO ===== -->
@@ -72,25 +103,25 @@ if ($apiResponse) {
   </div>
 </section>
 
-      <!-- ===== Barre de recherche avec autocomplétion ===== -->
-      <div class="section">
-      <div class="container">
-        <div class="search-wrapper">
-          <form id="searchForm" action="livre.php" method="GET" class="search-bar" aria-label="Recherche de livre">
-            <input 
-              id="q" 
-              name="q" 
-              type="text" 
-              placeholder="Rechercher un livre, un auteur…" 
-              autocomplete="off" 
-              required
-            >
-            <button type="submit" class="btn btn-primary">🔍</button>
-          </form>
-          <ul id="suggestions" class="suggestions"></ul>
-        </div>
-      </div>
+<!-- ===== Barre de recherche avec autocomplétion ===== -->
+<div class="section">
+  <div class="container">
+    <div class="search-wrapper">
+      <form id="searchForm" action="livre.php" method="GET" class="search-bar" aria-label="Recherche de livre">
+        <input
+          id="q"
+          name="q"
+          type="text"
+          placeholder="Rechercher un livre, un auteur…"
+          autocomplete="off"
+          required
+        >
+        <button type="submit" class="btn btn-primary">🔍</button>
+      </form>
+      <ul id="suggestions" class="suggestions"></ul>
     </div>
+  </div>
+</div>
 
 <!-- ===== Features ===== -->
 <section id="features" class="section">
@@ -114,45 +145,6 @@ if ($apiResponse) {
 </section>
 
 <!-- ===== Catalogue / Sélection dynamique ===== -->
-<?php
-// === Sélection dynamique Google Books ===
-
-$topics = [
-  'subject:fiction', 'subject:romance', 'subject:history', 'subject:fantasy',
-  'subject:thriller', 'subject:mystery', 'subject:biography', 'subject:poetry',
-  'subject:drama', 'subject:literary', 'subject:classic',
-
-  'subject:science', 'subject:philosophy', 'subject:psychology',
-  'subject:education', 'subject:religion', 'subject:travel', 'subject:art',
-  'subject:music', 'subject:architecture', 'subject:design', 'subject:photography',
-
-  'subject:comics', 'subject:graphic novels', 'subject:manga',
-
-  'subject:cooking', 'subject:health', 'subject:wellness', 'subject:business',
-  'subject:technology', 'subject:politics', 'subject:society', 'subject:law',
-  'subject:economics',
-
-  'subject:environment', 'subject:nature', 'subject:sport', 'subject:adventure',
-  'subject:science fiction', 'subject:horror'
-];
-
-$topic = $topics[array_rand($topics)];
-$start = rand(0, 25);
-
-$googleBooks = [];
-$apiUrl = "https://www.googleapis.com/books/v1/volumes?q={$topic}&langRestrict=fr&startIndex={$start}&maxResults=6&key={$GOOGLE_API_KEY}";
-$apiResponse = @file_get_contents($apiUrl);
-
-if ($apiResponse) {
-  $json = json_decode($apiResponse, true);
-  if (!empty($json['items'])) {
-    $googleBooks = $json['items'];
-  }
-}
-
-$topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $topic)[1] ?? 'inconnu'));
-?>
-
 <section id="catalogue" class="section muted">
   <div class="container">
     <h2 class="section-title">Sélection du moment : <?= htmlspecialchars($topicName) ?></h2>
@@ -201,4 +193,5 @@ $topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $top
     </div>
   </div>
 </div>
+
 <?php include("include/footer.inc.php"); ?>

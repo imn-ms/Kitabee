@@ -1,5 +1,20 @@
 <?php
-// amis.php — Gestion des amis (recherche, demandes, liste d'amis)
+/**
+ * amis.php
+ *
+ * Page de gestion des amis du projet Kitabee.
+ *
+ * Fonctionnalités :
+ * - recherche d’utilisateurs par login ou e-mail,
+ * - envoi de demandes d’ami,
+ * - acceptation / refus des demandes reçues,
+ * - suppression d’amis,
+ * - affichage de la liste d’amis et des demandes en attente.
+ * 
+ * Auteur : MOUSSAOUI Imane
+ * Projet : Kitabee
+ */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -9,200 +24,27 @@ if (empty($_SESSION['user'])) {
 }
 
 require_once __DIR__ . '/secret/database.php';
-require_once __DIR__ . '/classes/BadgeManager.php';
+require_once __DIR__ . '/include/functions.inc.php';
 
 $userId    = (int)$_SESSION['user'];
 $login     = $_SESSION['login'] ?? 'Utilisateur';
 $pageTitle = "Mes amis – Kitabee";
 
-$message = null;
-$error   = null;
+/**
+ * Initialisation de toutes les données nécessaires à l’affichage :
+ * - message / erreur,
+ * - résultats de recherche,
+ * - demandes reçues,
+ * - liste d’amis.
+ */
+$ctx = kb_friends_page_context($pdo, $userId);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-
-    // 1) Envoyer une demande d'ami
-    if ($action === 'send_request') {
-        $targetId = isset($_POST['target_id']) ? (int)$_POST['target_id'] : 0;
-
-        if ($targetId <= 0 || $targetId === $userId) {
-            $error = "Utilisateur invalide.";
-        } else {
-            // Vérifier si une relation existe déjà
-            $stmt = $pdo->prepare("
-                SELECT id, status
-                FROM user_friends
-                WHERE (user_id = :me AND friend_id = :them)
-                   OR (user_id = :them AND friend_id = :me)
-                LIMIT 1
-            ");
-            $stmt->execute([
-                ':me'   => $userId,
-                ':them' => $targetId,
-            ]);
-            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($existing) {
-                if ($existing['status'] === 'pending') {
-                    $error = "Une demande d'ami est déjà en attente entre vous.";
-                } elseif ($existing['status'] === 'accepted') {
-                    $error = "Vous êtes déjà amis avec cette personne.";
-                } else {
-                    $error = "Une relation existe déjà avec cette personne.";
-                }
-            } else {
-                // Créer la demande
-                $stmt = $pdo->prepare("
-                    INSERT INTO user_friends (user_id, friend_id, requested_by, status, created_at)
-                    VALUES (:me, :them, :me, 'pending', NOW())
-                ");
-                $ok = $stmt->execute([
-                    ':me'   => $userId,
-                    ':them' => $targetId,
-                ]);
-
-                if ($ok) {
-                    $message = "Demande d'ami envoyée ✔";
-                } else {
-                    $error = "Impossible d'envoyer la demande d'ami.";
-                }
-            }
-        }
-    }
-
-    // 2) Accepter une demande reçue
-    if ($action === 'accept_request') {
-        $requestId = isset($_POST['request_id']) ? (int)$_POST['request_id'] : 0;
-
-        if ($requestId > 0) {
-            // On vérifie que la demande m'est bien adressée
-            $stmt = $pdo->prepare("
-                UPDATE user_friends
-                SET status = 'accepted'
-                WHERE id = :id
-                  AND friend_id = :me
-                  AND status = 'pending'
-            ");
-            $ok = $stmt->execute([
-                ':id' => $requestId,
-                ':me' => $userId,
-            ]);
-
-            if ($ok && $stmt->rowCount() === 1) {
-                $message = "Demande d'ami acceptée 👍";
-            } else {
-                $error = "Impossible d'accepter cette demande.";
-            }
-        }
-    }
-
-    // 3) Refuser une demande reçue
-    if ($action === 'reject_request') {
-        $requestId = isset($_POST['request_id']) ? (int)$_POST['request_id'] : 0;
-
-        if ($requestId > 0) {
-            // On supprime la demande si elle m'est adressée
-            $stmt = $pdo->prepare("
-                DELETE FROM user_friends
-                WHERE id = :id
-                  AND friend_id = :me
-                  AND status = 'pending'
-            ");
-            $ok = $stmt->execute([
-                ':id' => $requestId,
-                ':me' => $userId,
-            ]);
-
-            if ($ok && $stmt->rowCount() === 1) {
-                $message = "Demande d'ami refusée.";
-            } else {
-                $error = "Impossible de refuser cette demande.";
-            }
-        }
-    }
-
-    // 4) Supprimer un ami (relation acceptée)
-    if ($action === 'remove_friend') {
-        $friendId = isset($_POST['friend_id']) ? (int)$_POST['friend_id'] : 0;
-
-        if ($friendId > 0 && $friendId !== $userId) {
-            $stmt = $pdo->prepare("
-                DELETE FROM user_friends
-                WHERE ((user_id = :me AND friend_id = :friend)
-                    OR (user_id = :friend AND friend_id = :me))
-                  AND status = 'accepted'
-            ");
-            $ok = $stmt->execute([
-                ':me'     => $userId,
-                ':friend' => $friendId,
-            ]);
-
-            if ($ok && $stmt->rowCount() > 0) {
-                $message = "Cet ami a bien été supprimé.";
-            } else {
-                $error = "Impossible de supprimer cet ami.";
-            }
-        } else {
-            $error = "Ami invalide.";
-        }
-    }
-}
-
-// RECHERCHE D'UTILISATEURS
-$searchTerm    = trim($_GET['q'] ?? '');
-$searchResults = [];
-
-if ($searchTerm !== '') {
-    $stmt = $pdo->prepare("
-        SELECT id, login, avatar_choice, email
-        FROM users
-        WHERE (login LIKE :term OR email LIKE :term)
-          AND id <> :me
-        ORDER BY login ASC
-        LIMIT 20
-    ");
-    $stmt->execute([
-        ':term' => '%' . $searchTerm . '%',
-        ':me'   => $userId,
-    ]);
-    $searchResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// DEMANDES REÇUES
-$stmt = $pdo->prepare("
-    SELECT uf.id, uf.user_id, uf.created_at,
-           u.login, u.avatar_choice
-    FROM user_friends uf
-    JOIN users u ON u.id = uf.user_id
-    WHERE uf.friend_id = :me
-      AND uf.status = 'pending'
-    ORDER BY uf.created_at DESC
-");
-$stmt->execute([':me' => $userId]);
-$incomingRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// MES AMIS (relations acceptées)
-$stmt = $pdo->prepare("
-    SELECT
-      CASE 
-        WHEN uf.user_id = :me THEN uf.friend_id
-        ELSE uf.user_id
-      END AS friend_id,
-      u.login,
-      u.avatar_choice
-    FROM user_friends uf
-    JOIN users u ON u.id = CASE 
-                              WHEN uf.user_id = :me THEN uf.friend_id
-                              ELSE uf.user_id
-                           END
-    WHERE (uf.user_id = :me OR uf.friend_id = :me)
-      AND uf.status = 'accepted'
-    ORDER BY u.login ASC
-");
-$stmt->execute([':me' => $userId]);
-$friends = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$badgeManager = new BadgeManager($pdo); $newBadges = $badgeManager->checkAllForUser($userId); if (!empty($newBadges)) { $_SESSION['new_badges'] = $newBadges; }
+$message          = $ctx['message'];
+$error            = $ctx['error'];
+$searchTerm       = $ctx['searchTerm'];
+$searchResults    = $ctx['searchResults'];
+$incomingRequests = $ctx['incomingRequests'];
+$friends          = $ctx['friends'];
 
 include __DIR__ . '/include/header.inc.php';
 ?>
@@ -251,8 +93,8 @@ include __DIR__ . '/include/header.inc.php';
             <?php foreach ($searchResults as $u): ?>
               <li style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <?php if (!empty($u['avatar'])): ?>
-                    <!-- avatar depuis BDD via avatar.php -->
+                  <?php if (!empty($u['avatar_choice'])): ?>
+                    <!-- Avatar depuis avatar.php -->
                     <img src="avatar.php?id=<?= (int)$u['id'] ?>"
                          alt=""
                          style="width:36px; height:36px; border-radius:50%; object-fit:cover;">

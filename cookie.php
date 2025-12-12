@@ -1,12 +1,26 @@
 <?php
 /**
- * cookie.php
-
+ * cookie.php – Gestion des cookies
+ *
+ * Cette page informe l'utilisateur sur :
+ * - la présence du cookie de session ("visited"),
+ * - le consentement aux cookies non essentiels,
+ * - les cookies persistants utilisés par Kitabee (style, dernière visite).
+ *
+ * Auteur : MOUSSAUI Imane
+ * Projet : Kitabee
  */
 
 header('Content-Type: text/html; charset=UTF-8');
-$visited = isset($_COOKIE['visited']);
-$consent = $_COOKIE['cookie_consent'] ?? null;
+
+require_once __DIR__ . '/include/functions.inc.php';
+
+$cookieCtx = kb_get_cookie_status();
+
+$visited = $cookieCtx['visited'];
+$consent = $cookieCtx['consent'];
+$style   = $cookieCtx['style'];
+$lastVisit = $cookieCtx['last_visit'];
 
 $pageTitle = "Gestion des cookies – Kitabee";
 include 'include/header.inc.php';
@@ -27,12 +41,23 @@ include 'include/header.inc.php';
         <hr>
         <h2>Cookies enregistrés</h2>
         <ul>
-          <li><strong>Style :</strong> <?= htmlspecialchars($_COOKIE['style'] ?? 'non défini', ENT_QUOTES, 'UTF-8') ?></li>
-          <li><strong>Dernière visite :</strong> <?= htmlspecialchars($_COOKIE['last_visit'] ?? 'non enregistrée', ENT_QUOTES, 'UTF-8') ?></li>
+          <li>
+            <strong>Style :</strong>
+            <?= htmlspecialchars($style ?? 'non défini', ENT_QUOTES, 'UTF-8') ?>
+          </li>
+          <li>
+            <strong>Dernière visite :</strong>
+            <?= htmlspecialchars($lastVisit ?? 'non enregistrée', ENT_QUOTES, 'UTF-8') ?>
+          </li>
         </ul>
       <?php else: ?>
         <hr>
-        <p><em>Aucun cookie persistant affiché car vous n’avez pas accepté les cookies non indispensables.</em></p>
+        <p>
+          <em>
+            Aucun cookie persistant affiché car vous n’avez pas accepté
+            les cookies non indispensables.
+          </em>
+        </p>
       <?php endif; ?>
 
       <div style="margin-top:12px;">
@@ -45,32 +70,5 @@ include 'include/header.inc.php';
   </div>
 </section>
 
-<!-- ====== Date & Heure dynamiques ====== -->
-<section class="section" aria-labelledby="clock-title">
-  <div class="container" style="text-align:center; margin:40px 0;">
-    <h2 id="clock-title">Date & Heure locales</h2>
-    <p id="clock" style="font-size:1.3rem; font-weight:bold; color:#333;"></p>
-  </div>
-</section>
 
-<script>
-  function updateClock() {
-    const now = new Date();
-    const formatted = now.toLocaleString("fr-FR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
-    document.getElementById("clock").textContent = formatted;
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
-</script>
-
-<?php
-include 'include/footer.inc.php';
-?>
+<?php include 'include/footer.inc.php'; ?>

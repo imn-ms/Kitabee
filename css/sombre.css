@@ -1,12 +1,3 @@
-/* =========================================================
-   KITABEE — clair.css (clean)
-   - Doublons supprimés
-   - Sections organisées
-   - Palette harmonisée (même gamme)
-   - Mode sombre supprimé (géré ailleurs)
-   - Responsive consolidé
-========================================================= */
-
 /* ===================== VARIABLES ===================== */
 :root {
   --bg: #0f1a14;
@@ -43,7 +34,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  font-size: 16px; /* base */
+  font-size: 16px;
 }
 
 img, svg, video, canvas {
@@ -1673,15 +1664,15 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
 }
 .link-more:hover { text-decoration: underline; }
 
-/* ===================== RESPONSIVE (CONSOLIDÉ) ===================== */
-/* <= 1024px */
+/* ===================== RESPONSIVE ===================== */
+
 @media (max-width: 1024px) {
   .page-livre .book-list {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
-/* <= 900px (tablette) */
+
 @media (max-width: 900px) {
   .menu-toggle { display: inline-flex; }
 
@@ -1711,20 +1702,20 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
   .club-layout-shell { grid-template-columns: 1fr; }
 }
 
-/* <= 960px (contact) */
+
 @media (max-width: 960px) {
   .contact-grid { grid-template-columns: 1fr; }
   .contact-card, .contact-aside { border-radius: 16px; }
 }
 
-/* <= 800px */
+
 @media (max-width: 800px) {
   .page-livre .book-list {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
-/* <= 600px (mobile) */
+
 @media (max-width: 600px) {
   .brand-text { display: none; }
   .brand { gap: 6px; }
@@ -1741,7 +1732,7 @@ rating-count { font-size: .85rem; color: var(--muted-ink); }
   .book-detail img { width: min(280px, 100%); }
 }
 
-/* <= 520px */
+
 @media (max-width: 520px) {
   .page-livre .book-list { grid-template-columns: 1fr !important; }
 }

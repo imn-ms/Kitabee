@@ -1,4 +1,16 @@
 <?php
+/**
+ * detail.php — Détail d'un livre (Google Books)
+ *
+ * - Affiche les informations d'un livre via Google Books API (volume ID).
+ * - Permet (si connecté) d'ajouter/retirer le livre de la wishlist ou bibliothèque.
+ * - Permet (si le livre est en bibliothèque) d'enregistrer une note (1..5) et un commentaire privé.
+ * - Affiche la moyenne globale des notes (tous utilisateurs Kitabee).
+ *
+ * Auteur : TRIOLLET-PEREIRA Odessa
+ * Projet : Kitabee
+ */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -6,6 +18,7 @@ $pageTitle = "Détail du livre - Kitabee";
 
 require_once __DIR__ . '/secret/config.php';
 require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/include/functions.inc.php';
 
 $loggedUserId = !empty($_SESSION['user']) ? (int)$_SESSION['user'] : 0;
 $login        = $_SESSION['login'] ?? null;
@@ -14,144 +27,34 @@ include __DIR__ . '/include/header.inc.php';
 
 $id = isset($_GET['id']) ? trim($_GET['id']) : '';
 
-
 if (!$id) {
     echo "<p>Aucun livre sélectionné.</p>";
     include 'include/footer.inc.php';
     exit;
 }
 
-// --- Récupération du livre via Google Books ---
-$url      = "https://www.googleapis.com/books/v1/volumes/{$id}?key={$GOOGLE_API_KEY}";
-$response = @file_get_contents($url);
-$book     = $response ? json_decode($response, true) : null;
+$ctx = kb_get_book_detail_context($pdo, $id, $loggedUserId, $GOOGLE_API_KEY ?? null);
 
-if (empty($book['volumeInfo'])) {
-    echo "<p>Livre introuvable.</p>";
+if (empty($ctx['ok'])) {
+    echo "<p>" . htmlspecialchars($ctx['error'] ?? 'Erreur inconnue.', ENT_QUOTES, 'UTF-8') . "</p>";
     include 'include/footer.inc.php';
     exit;
 }
 
-$info = $book['volumeInfo'];
-$title         = $info['title'] ?? 'Titre inconnu';
-$authors       = isset($info['authors']) ? implode(', ', $info['authors']) : 'Auteur inconnu';
-$description   = $info['description'] ?? 'Pas de description disponible.';
-$thumbnail     = $info['imageLinks']['thumbnail'] ?? "https://via.placeholder.com/200x300?text=Pas+d'image";
-$publisher     = $info['publisher'] ?? 'Éditeur inconnu';
-$publishedDate = $info['publishedDate'] ?? 'Date inconnue';
-$pageCount     = $info['pageCount'] ?? 'Non précisé';
-$categories    = isset($info['categories']) ? implode(', ', $info['categories']) : 'Non classé';
-
-// --- Déterminer si le livre est dans la wishlist / bibliothèque ---
-$isInWishlist = false;
-$isInLibrary  = false;
-
-if (!empty($loggedUserId)) {
-    // Wishlist
-    $stmt = $pdo->prepare("
-        SELECT 1
-        FROM user_wishlist
-        WHERE user_id = :uid AND google_book_id = :bid
-        LIMIT 1
-    ");
-    $stmt->execute([
-        ':uid' => (int)$loggedUserId,
-        ':bid' => $id
-    ]);
-    $isInWishlist = (bool)$stmt->fetchColumn();
-
-    // Bibliothèque
-    $stmt = $pdo->prepare("
-        SELECT 1
-        FROM user_library
-        WHERE user_id = :uid AND google_book_id = :bid
-        LIMIT 1
-    ");
-    $stmt->execute([
-        ':uid' => (int)$loggedUserId,
-        ':bid' => $id
-    ]);
-    $isInLibrary = (bool)$stmt->fetchColumn();
-}
-
-// ===== Notes & commentaires =====
-$personalRating   = null;
-$personalComment  = '';
-$avgRating        = null;
-$avgCount         = 0;
-
-// Traitement du POST pour note/commentaire perso
-if (!empty($loggedUserId) && $isInLibrary && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
-    $rating  = $_POST['rating'] ?? '';
-    $comment = trim($_POST['private_comment'] ?? '');
-
-    if ($rating === '') {
-        $rating = null;
-    } else {
-        $rating = (int)$rating;
-        if ($rating < 1 || $rating > 5) {
-            $rating = null; // sécurité
-        }
-    }
-
-    $stmt = $pdo->prepare("
-        UPDATE user_library
-        SET rating = :rating,
-            private_comment = :comment
-        WHERE user_id = :uid
-          AND google_book_id = :gid
-    ");
-    $stmt->execute([
-        ':rating'  => $rating,
-        ':comment' => ($comment !== '' ? $comment : null),
-        ':uid'     => (int)$loggedUserId,
-        ':gid'     => $id
-    ]);
-
-    // on met à jour les variables locales pour l'affichage
-    $personalRating  = $rating;
-    $personalComment = $comment;
-}
-
-// Récupération des infos perso si l'utilisateur est connecté et que le livre est dans sa bibliothèque
-if (!empty($loggedUserId) && $isInLibrary) {
-    $stmt = $pdo->prepare("
-        SELECT rating, private_comment
-        FROM user_library
-        WHERE user_id = :uid
-          AND google_book_id = :gid
-        LIMIT 1
-    ");
-    $stmt->execute([
-        ':uid' => (int)$loggedUserId,
-        ':gid' => $id
-    ]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($row) {
-        if ($personalRating === null && $row['rating'] !== null) {
-            $personalRating = (int)$row['rating'];
-        }
-        if ($personalComment === '' && $row['private_comment'] !== null) {
-            $personalComment = $row['private_comment'];
-        }
-    }
-}
-
-// Moyenne globale des notes tous utilisateurs
-$stmt = $pdo->prepare("
-    SELECT COUNT(*) AS nb, AVG(rating) AS avg_rating
-    FROM user_library
-    WHERE google_book_id = :gid
-      AND rating IS NOT NULL
-");
-$stmt->execute([':gid' => $id]);
-$stats = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if ($stats && $stats['nb'] > 0) {
-    $avgRating = (float)$stats['avg_rating'];
-    $avgCount  = (int)$stats['nb'];
-}
+$title           = $ctx['title'];
+$authors         = $ctx['authors'];
+$description     = $ctx['description'];
+$thumbnail       = $ctx['thumbnail'];
+$publisher       = $ctx['publisher'];
+$publishedDate   = $ctx['publishedDate'];
+$pageCount       = $ctx['pageCount'];
+$categories      = $ctx['categories'];
+$isInWishlist    = (bool)$ctx['isInWishlist'];
+$isInLibrary     = (bool)$ctx['isInLibrary'];
+$personalRating  = $ctx['personalRating'];
+$personalComment = $ctx['personalComment'];
+$avgRating       = $ctx['avgRating'];
+$avgCount        = (int)$ctx['avgCount'];
 ?>
 
 <div class="book-detail">
@@ -185,7 +88,7 @@ if ($stats && $stats['nb'] > 0) {
     <p><strong>Auteur(s) :</strong> <?= htmlspecialchars($authors) ?></p>
     <p><strong>Éditeur :</strong> <?= htmlspecialchars($publisher) ?></p>
     <p><strong>Publié le :</strong> <?= htmlspecialchars($publishedDate) ?></p>
-    <p><strong>Pages :</strong> <?= htmlspecialchars($pageCount) ?></p>
+    <p><strong>Pages :</strong> <?= htmlspecialchars((string)$pageCount) ?></p>
     <p><strong>Catégories :</strong> <?= htmlspecialchars($categories) ?></p>
     <?= nl2br(htmlspecialchars(strip_tags($description))) ?>
 

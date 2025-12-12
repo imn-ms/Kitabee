@@ -1,5 +1,17 @@
 <?php
-// dashboard_user.php — Tableau de bord utilisateur
+/**
+ * dashboard_user.php — Tableau de bord utilisateur
+ *
+ * Page privée accessible uniquement aux utilisateurs connectés.
+ * Affiche :
+ * - les accès rapides (profil, bibliothèque, amis, clubs)
+ * - les badges débloqués
+ * - des indicateurs de notifications (demandes d'amis / clubs)
+ *
+ * Auteur : MOUSSAOUI Imane
+ * Projet : Kitabee
+ */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -10,67 +22,18 @@ if (empty($_SESSION['user'])) {
 
 require_once __DIR__ . '/secret/database.php';
 require_once __DIR__ . '/classes/BadgeManager.php';
+require_once __DIR__ . '/include/functions.inc.php';
 
 $userId    = (int)($_SESSION['user'] ?? 0);
 $login     = $_SESSION['login'] ?? 'Utilisateur';
 $pageTitle = "Mon espace – Kitabee";
 
-// ===== Badges utilisateur =====
-$badgeManager = new BadgeManager($pdo);
-$userBadges   = $badgeManager->getUserBadges($userId); // <-- ici : $userId (et pas $userID)
+$dash = kb_get_dashboard_data($pdo, $userId);
 
-/** Nombre de demandes d'amis en attente pour l'utilisateur connecté */
-$pendingFriendRequests = 0;
-if ($userId) {
-    try {
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM user_friends
-            WHERE friend_id = :uid
-              AND status = 'pending'
-        ");
-        $stmt->execute([':uid' => $userId]);
-        $pendingFriendRequests = (int)$stmt->fetchColumn();
-    } catch (Throwable $e) {
-        $pendingFriendRequests = 0;
-    }
-}
-
-/** Nombre d'invitations de clubs de lecture */
-$pendingClubInvites = 0;
-if ($userId) {
-    try {
-        $stmtClub = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM notifications
-            WHERE user_id = :uid
-              AND type = 'club_invite'
-              AND is_read = 0
-        ");
-        $stmtClub->execute([':uid' => $userId]);
-        $pendingClubInvites = (int)$stmtClub->fetchColumn();
-    } catch (Throwable $e) {
-        $pendingClubInvites = 0;
-    }
-}
-
-/** Nombre total de messages de clubs non lus */
-$unreadClubMessagesTotal = 0;
-if ($userId) {
-    try {
-        $stmtMsg = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM notifications
-            WHERE user_id = :uid
-              AND type = 'club_message'
-              AND is_read = 0
-        ");
-        $stmtMsg->execute([':uid' => $userId]);
-        $unreadClubMessagesTotal = (int)$stmtMsg->fetchColumn();
-    } catch (Throwable $e) {
-        $unreadClubMessagesTotal = 0;
-    }
-}
+$userBadges              = $dash['userBadges'];
+$pendingFriendRequests   = $dash['pendingFriendRequests'];
+$pendingClubInvites      = $dash['pendingClubInvites'];
+$unreadClubMessagesTotal = $dash['unreadClubMessagesTotal'];
 
 include __DIR__ . '/include/header.inc.php';
 ?>
@@ -172,4 +135,3 @@ include __DIR__ . '/include/header.inc.php';
 </section>
 
 <?php include __DIR__ . '/include/footer.inc.php'; ?>
-

@@ -1,7 +1,17 @@
 <?php
 /**
  * connexion.php — Page publique : formulaire de connexion (BD)
+ *
+ * Cette page affiche un formulaire de connexion et traite l'authentification :
+ * - Vérification reCAPTCHA (Google)
+ * - Vérification des identifiants en base (password_verify)
+ * - Vérification d'activation du compte (is_active)
+ * - Initialisation de la session (user, login, avatar_has)
+ *
+ * Auteur : MOUSSAOUI Imane
+ * Projet : Kitabee
  */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
@@ -15,89 +25,20 @@ if (!empty($_SESSION['user'])) {
 // connexion à la base + config (pour reCAPTCHA)
 require_once __DIR__ . '/secret/database.php';
 require_once __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/include/functions.inc.php';
 
 $pageTitle = "Connexion – Kitabee";
 $error = null;
 $success = null;
 
-// Message si redirection après réinitialisation de mot de passe
-if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
-    $success = "Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.";
-}
+// Traitement centralisé
+$ctx = kb_handle_login($pdo, [], $_POST, $_GET, $_SERVER);
+$error   = $ctx['error'];
+$success = $ctx['success'];
 
-// Traitement du formulaire
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $login           = trim($_POST['login'] ?? '');
-    $password        = $_POST['password'] ?? '';
-    $target          = $_POST['redirect'] ?? 'profil_user.php';
-    $captchaResponse = $_POST['g-recaptcha-response'] ?? '';
-
-    if ($login === '' || $password === '') {
-        $error = "Veuillez renseigner votre identifiant et votre mot de passe.";
-    } elseif ($captchaResponse === '') {
-        $error = "Veuillez valider le CAPTCHA.";
-    } else {
-        // Vérification reCAPTCHA côté Google
-        $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
-        $params = [
-            'secret'   => RECAPTCHA_SECRET_KEY,
-            'response' => $captchaResponse,
-            'remoteip' => $_SERVER['REMOTE_ADDR'] ?? null
-        ];
-
-        $options = [
-            'http' => [
-                'method'  => 'POST',
-                'header'  => "Content-Type: application/x-www-form-urlencoded\r\n",
-                'content' => http_build_query($params)
-            ]
-        ];
-
-        $context = stream_context_create($options);
-        $result  = @file_get_contents($verifyUrl, false, $context);
-        $data    = json_decode($result, true);
-
-        if (empty($data['success'])) {
-            $error = "CAPTCHA invalide, merci de réessayer.";
-        } else {
-
-            // récupérer l'utilisateur en BD
-            $stmt = $pdo->prepare('
-                SELECT id, login, password, is_active, avatar_choice
-                FROM users
-                WHERE login = :login
-                LIMIT 1
-            ');
-            $stmt->execute([':login' => $login]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($user && password_verify($password, $user['password'])) {
-
-                // ✅ vérifier l'activation
-                if ((int)$user['is_active'] !== 1) {
-                    $error = "Votre compte n’est pas encore activé. Vérifiez vos emails.";
-                } else {
-                    // connexion OK
-                    session_regenerate_id(true);
-
-                    $_SESSION['user']  = (int)$user['id'];
-                    $_SESSION['login'] = $user['login'];
-
-                    // 🔑 IMPORTANT : indiquer au header si un avatar existe (BLOB en BD)
-                    $_SESSION['avatar_has'] = !empty($user['avatar']);
-
-                    // (optionnel, plus utilisé par le header)
-                    // $_SESSION['avatar'] = $user['avatar'];
-
-                    header('Location: ' . $target);
-                    exit;
-                }
-
-            } else {
-                $error = "Identifiants invalides.";
-            }
-        }
-    }
+if (!empty($ctx['redirect'])) {
+    header('Location: ' . $ctx['redirect']);
+    exit;
 }
 
 include __DIR__ . '/include/header.inc.php';

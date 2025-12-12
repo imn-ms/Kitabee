@@ -1,18 +1,24 @@
 <?php
-// deconnexion.php — détruit la session puis redirige
+/**
+ * deconnexion.php — Déconnexion utilisateur
+ *
+ * Page technique chargée de :
+ * - détruire la session utilisateur
+ * - supprimer le cookie de session
+ * - rediriger vers la page de connexion
+ *
+ * Auteur : MOUSSAOUI Imane
+ * Projet : Kitabee
+ */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
 
-// On vide et détruit la session proprement
-$_SESSION = [];
-if (ini_get('session.use_cookies')) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params['path'], $params['domain'], $params['secure'], $params['httponly']
-    );
-}
-session_destroy();
+require_once __DIR__ . '/include/functions.inc.php';
 
-// redirection directe vers la connexion
+// Déconnexion propre
+kb_logout_user();
+
+// Redirection vers la page de connexion
 header('Location: connexion.php');
 exit;

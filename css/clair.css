@@ -34,7 +34,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  font-size: 16px; /* base */
+  font-size: 16px; 
 }
 
 img, svg, video, canvas {
@@ -1662,15 +1662,14 @@ body.font-large  { font-size: 19px !important; }
 }
 .link-more:hover { text-decoration: underline; }
 
-/* ===================== RESPONSIVE (CONSOLIDÉ) ===================== */
-/* <= 1024px */
+/* ===================== RESPONSIVE ===================== */
+
 @media (max-width: 1024px) {
   .page-livre .book-list {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
-/* <= 900px (tablette) */
 @media (max-width: 900px) {
   .menu-toggle { display: inline-flex; }
 
@@ -1700,20 +1699,18 @@ body.font-large  { font-size: 19px !important; }
   .club-layout-shell { grid-template-columns: 1fr; }
 }
 
-/* <= 960px (contact) */
 @media (max-width: 960px) {
   .contact-grid { grid-template-columns: 1fr; }
   .contact-card, .contact-aside { border-radius: 16px; }
 }
 
-/* <= 800px */
+
 @media (max-width: 800px) {
   .page-livre .book-list {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
-/* <= 600px (mobile) */
 @media (max-width: 600px) {
   .brand-text { display: none; }
   .brand { gap: 6px; }
@@ -1730,7 +1727,6 @@ body.font-large  { font-size: 19px !important; }
   .book-detail img { width: min(280px, 100%); }
 }
 
-/* <= 520px */
 @media (max-width: 520px) {
   .page-livre .book-list { grid-template-columns: 1fr !important; }
 }

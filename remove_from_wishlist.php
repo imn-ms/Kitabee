@@ -1,8 +1,22 @@
 <?php
-session_start();
-require __DIR__ . '/secret/config.php';
+/**
+ * remove_from_wishlist.php — Retire un livre de la wishlist de l'utilisateur.
+ *
+ * Rôle :
+ * - Vérifie que l'utilisateur est connecté.
+ * - Récupère le Google Book ID depuis POST.
+ * - Supprime le livre de la table user_wishlist.
+ * - Redirige vers la page bibliothèque.
+ */
 
-if (!isset($_SESSION['user'])) {
+header('Content-Type: text/html; charset=UTF-8');
+session_start();
+
+require_once __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/include/functions.inc.php';
+
+if (empty($_SESSION['user'])) {
     header('Location: connexion.php');
     exit;
 }
@@ -10,21 +24,14 @@ if (!isset($_SESSION['user'])) {
 $userId = (int)$_SESSION['user'];
 $bookId = $_POST['book_id'] ?? '';
 
-if (empty($bookId)) {
+if (trim($bookId) === '') {
     header('Location: bibliotheque.php');
     exit;
 }
 
-// Supprimer le livre de la wishlist
-$stmt = $pdo->prepare("
-    DELETE FROM user_wishlist
-    WHERE user_id = :uid AND google_book_id = :bid
-");
-$stmt->execute([
-    ':uid' => $userId,
-    ':bid' => $bookId,
-]);
+// Suppression via fonction dédiée
+kb_remove_from_wishlist($pdo, $userId, (string)$bookId);
 
-// Retour à la page bibliothèque
+// Retour à la bibliothèque
 header('Location: bibliotheque.php');
 exit;

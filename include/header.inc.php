@@ -1,125 +1,73 @@
 <?php
 /**
- * header.inc.php – Kitabee
+ * header.inc.php
+ *
+ * Fichier d’en-tête commun à l’ensemble du site Kitabee.
+ *
+ * Ce fichier est inclus au début de chaque page du site et a pour rôle de :
+ * - initialiser le contexte global de l’interface utilisateur,
+ * - récupérer les informations liées à l’utilisateur connecté,
+ * - afficher le compte utilisateur (avatar ou initiale),
+ * - afficher les compteurs de notifications (amis, clubs, messages),
+ * - gérer le thème jour / nuit,
+ * - préparer les éléments d’accessibilité et de traduction,
+ * - afficher la navigation principale du site.
+ *
+ * Toute la logique PHP a été externalisée dans `include/functions.php`
+ * afin de garantir une meilleure lisibilité, une maintenance simplifiée
+ * et une séparation claire entre la logique applicative et le HTML.
+ *
+ * Auteur : MOUSSAOUI Imane & TRIOLLET-PEREIRA Odessa
+ * Projet : Kitabee
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/functions.inc.php';
 
-/* ========= UTILISATEUR ========= */
-$loggedUserId     = $_SESSION['user']  ?? null;
-$loggedLogin      = $_SESSION['login'] ?? null;
+/**
+ * Initialisation du contexte global du header.
+ *
+ * Cette fonction centralise :
+ * - la session utilisateur,
+ * - les informations de compte,
+ * - les notifications,
+ * - le thème actif,
+ * - la date de dernière visite.
+ */
+$ctx = kb_header_bootstrap(isset($pdo) ? $pdo : null, $pendingFriendRequests ?? null);
 
-/* ========= AVATAR (NOUVEAU SYSTEME avatar_choice) =========
-   On sécurise : on calcule $loggedHasAvatar depuis la BD
-   (avatar_choice non NULL => avatar choisi, sinon initiale)
-*/
-$loggedHasAvatar = false;
+/* =========================
+   VARIABLES UTILISÉES DANS LE HEADER
+   ========================= */
 
-if ($loggedUserId && isset($pdo)) {
-    try {
-        $stmtAv = $pdo->prepare("SELECT avatar_choice FROM users WHERE id = :uid LIMIT 1");
-        $stmtAv->execute([':uid' => (int)$loggedUserId]);
-        $avatarChoice = $stmtAv->fetchColumn();
+/** @var int|null Identifiant de l’utilisateur connecté */
+$loggedUserId          = $ctx['loggedUserId'];
 
-        $loggedHasAvatar = !empty($avatarChoice);
+/** @var string|null Login de l’utilisateur connecté */
+$loggedLogin           = $ctx['loggedLogin'];
 
-        // Optionnel mais conseillé : on synchronise la session
-        $_SESSION['avatar_has'] = $loggedHasAvatar;
-    } catch (Throwable $e) {
-        $loggedHasAvatar = $_SESSION['avatar_has'] ?? false;
-    }
-}
+/** @var bool Indique si l’utilisateur a choisi un avatar */
+$loggedHasAvatar       = $ctx['loggedHasAvatar'];
 
-/* ========= DEMANDES D'AMIS EN ATTENTE ========= */
-$pendingFriendRequests = isset($pendingFriendRequests) ? (int)$pendingFriendRequests : 0;
-if ($loggedUserId && isset($pdo) && $pendingFriendRequests === 0) {
-    try {
-        $stmtHeader = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM user_friends
-            WHERE friend_id = :uid
-              AND status = 'pending'
-        ");
-        $stmtHeader->execute([':uid' => (int)$loggedUserId]);
-        $pendingFriendRequests = (int)$stmtHeader->fetchColumn();
-    } catch (Throwable $e) {
-        $pendingFriendRequests = 0;
-    }
-}
+/** @var int Nombre de demandes d’amis en attente */
+$pendingFriendRequests = $ctx['pendingFriendRequests'];
 
-/* ========= NOTIFICATIONS CLUBS ========= */
-$pendingClubInvites  = 0;
-$pendingClubMessages = 0;
+/** @var int Nombre d’invitations à des clubs non lues */
+$pendingClubInvites    = $ctx['pendingClubInvites'];
 
-if ($loggedUserId && isset($pdo)) {
-    try {
-        // invitations de clubs
-        $stmtClub = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM notifications
-            WHERE user_id = :uid
-              AND type = 'club_invite'
-              AND is_read = 0
-        ");
-        $stmtClub->execute([':uid' => (int)$loggedUserId]);
-        $pendingClubInvites = (int)$stmtClub->fetchColumn();
+/** @var int Nombre de messages de clubs non lus */
+$pendingClubMessages   = $ctx['pendingClubMessages'];
 
-        // messages de clubs non lus
-        $stmtMsg = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM notifications
-            WHERE user_id = :uid
-              AND type = 'club_message'
-              AND is_read = 0
-        ");
-        $stmtMsg->execute([':uid' => (int)$loggedUserId]);
-        $pendingClubMessages = (int)$stmtMsg->fetchColumn();
+/** @var int Nombre total de notifications */
+$totalNotifs           = $ctx['totalNotifs'];
 
-    } catch (Throwable $e) {
-        $pendingClubInvites  = 0;
-        $pendingClubMessages = 0;
-    }
-}
+/** @var bool Consentement aux cookies non essentiels */
+$allowNonEssential     = $ctx['allowNonEssential'];
 
-/* ========= THEME JOUR / NUIT ========= */
-$cookieConsent     = $_COOKIE['cookie_consent'] ?? null;
-$allowNonEssential = ($cookieConsent === 'accepted');
-$isPostToggleStyle = isset($_POST['toggle_style']);
+/** @var string Thème actif (jour / nuit) */
+$style                 = $ctx['style'];
 
-$style = $_COOKIE['style'] ?? 'jour';
-
-if ($isPostToggleStyle) {
-    $new   = ($style === 'jour') ? 'nuit' : 'jour';
-    $style = $new;
-
-    if ($allowNonEssential) {
-        setcookie('style', $new, [
-            'expires'  => time() + 5 * 24 * 60 * 60,
-            'path'     => '/',
-            'secure'   => false,
-            'httponly' => false,
-            'samesite' => 'Lax',
-        ]);
-
-        header("Location: " . ($_SERVER['REQUEST_URI'] ?? $_SERVER['PHP_SELF']));
-        exit;
-    }
-}
-
-/* ========= DERNIÈRE VISITE ========= */
-$last_visit = $_COOKIE['last_visit'] ?? null;
-if ($allowNonEssential) {
-    $last_visit = date('d/m/Y H:i:s');
-    setcookie('last_visit', $last_visit, [
-        'expires'  => time() + 365 * 24 * 60 * 60,
-        'path'     => '/',
-        'secure'   => false,
-        'httponly' => false,
-        'samesite' => 'Lax',
-    ]);
-}
+/** @var string|null Date de la dernière visite de l’utilisateur */
+$last_visit            = $ctx['last_visit'];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -145,18 +93,18 @@ if ($allowNonEssential) {
 <header class="site-header">
   <div class="container header-inner">
 
-    <!-- Logo -->
+    <!-- Logo et identité du site -->
     <a href="/index.php" class="brand">
       <img src="/images/logo.png" alt="Kitabee" class="logo">
       <span class="brand-text">Kitabee</span>
     </a>
 
-    <!-- Menu burger -->
+    <!-- Menu burger (mobile) -->
     <button class="menu-toggle" aria-label="Ouvrir le menu">
       <span></span><span></span><span></span>
     </button>
 
-    <!-- Navigation -->
+    <!-- Navigation principale -->
     <nav class="main-nav">
       <a href="/bibliotheque.php">Bibliothèque</a>
       <a href="/actualites.php">Actualités</a>
@@ -164,50 +112,47 @@ if ($allowNonEssential) {
       <a href="/contact.php">Contact</a>
     </nav>
 
-    <!-- Compte utilisateur + actions droite -->
+    <!-- Compte utilisateur et actions -->
     <div class="actions-right">
       <?php if ($loggedUserId): ?>
         <div class="profile-wrapper">
           <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
             <?php if ($loggedHasAvatar): ?>
-              <!-- Avatar choisi : affichage via avatar.php -->
+              <!-- Avatar personnalisé -->
               <img src="/avatar.php?id=<?= (int)$loggedUserId ?>"
                    alt="Mon avatar"
                    class="profile-avatar">
             <?php else: ?>
-              <!-- Pas d’avatar choisi : initiale -->
+              <!-- Avatar par défaut : initiale -->
               <span class="profile-circle">
                 <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
               </span>
             <?php endif; ?>
           </a>
 
-          <?php
-            $totalNotifs = $pendingFriendRequests + $pendingClubInvites + $pendingClubMessages;
-            if ($totalNotifs > 0):
-          ?>
-            <span class="notif-badge avatar-notif-badge"><?= $totalNotifs ?></span>
+          <?php if ($totalNotifs > 0): ?>
+            <span class="notif-badge avatar-notif-badge"><?= (int)$totalNotifs ?></span>
           <?php endif; ?>
         </div>
       <?php else: ?>
         <a href="/connexion.php" class="chip">Connexion</a>
       <?php endif; ?>
 
-      <!-- Thème -->
+      <!-- Changement de thème jour / nuit -->
       <form method="post" class="theme-toggle" style="display:inline;">
         <button type="submit" name="toggle_style" class="chip">
           <?= ($style === 'jour') ? "🌙" : "☀️" ?>
         </button>
       </form>
 
-      <!--bouton d'accessibilité-->
+      <!-- Outils d’accessibilité -->
       <div class="accessibility-tools" aria-label="Options d’accessibilité">
         <button type="button" class="font-btn" data-font="small" aria-label="Diminuer la taille du texte">A-</button>
         <button type="button" class="font-btn" data-font="normal" aria-label="Taille de texte normale">A</button>
         <button type="button" class="font-btn" data-font="large" aria-label="Augmenter la taille du texte">A+</button>
       </div>
 
-      <!-- Bouton de traduction Google -->
+      <!-- Bouton Google Translate -->
       <button id="custom-translate-btn"
               onclick="toggleTranslate();"
               class="chip"
@@ -223,24 +168,6 @@ if ($allowNonEssential) {
        style="position:absolute; top:10px; right:20px; display:none;">
   </div>
 </header>
-
-<!-- Scripts Google Translate -->
-<script>
-  function googleTranslateElementInit() {
-    new google.translate.TranslateElement({
-      pageLanguage: 'fr',
-      includedLanguages: 'fr,en,es',
-      layout: google.translate.TranslateElement.InlineLayout.SIMPLE
-    }, 'google_translate_element');
-  }
-
-  function toggleTranslate() {
-    const el = document.getElementById('google_translate_element');
-    el.style.display = (el.style.display === 'none' || el.style.display === "")
-      ? 'block'
-      : 'none';
-  }
-</script>
 
 <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>

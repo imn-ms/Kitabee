@@ -2,13 +2,47 @@
 // ClubManager.php
 
 /**
- * Gestion des clubs de lecture (POO)
+ * Class ClubManager
+ *
+ * Gestionnaire des clubs de lecture du projet Kitabee.
+ *
+ * Cette classe gère l’ensemble des fonctionnalités liées aux clubs :
+ * - création et suppression de clubs,
+ * - gestion des membres (owner / membres),
+ * - gestion des livres associés aux clubs,
+ * - contrôle des droits d’accès (membre / owner).
+ *
+ * Elle repose sur une approche orientée objet (POO)
+ * et utilise PDO pour toutes les interactions avec la base de données.
+ *
+ * Auteur : Imane MOUSSAOUI
+ * Projet : Kitabee
  */
 class ClubManager
 {
+    /**
+     * Instance PDO pour l’accès à la base de données.
+     *
+     * @var PDO
+     */
     private PDO $pdo;
+
+    /**
+     * Identifiant de l’utilisateur courant.
+     *
+     * Utilisé pour vérifier les droits (membre / owner)
+     * et pour les actions liées aux clubs.
+     *
+     * @var int
+     */
     private int $userId;
 
+    /**
+     * Constructeur du ClubManager.
+     *
+     * @param PDO $pdo    Connexion PDO à la base de données.
+     * @param int $userId Identifiant de l’utilisateur courant.
+     */
     public function __construct(PDO $pdo, int $userId)
     {
         $this->pdo    = $pdo;
@@ -18,8 +52,16 @@ class ClubManager
     /* ================== Clubs ================== */
 
     /**
-     * Crée un club et ajoute l'utilisateur courant comme owner.
-     * Retourne l'ID du club ou null en cas d'échec.
+     * Crée un nouveau club de lecture.
+     *
+     * L’utilisateur courant devient automatiquement :
+     * - propriétaire du club (owner),
+     * - membre du club.
+     *
+     * @param string $name        Nom du club.
+     * @param string $description Description du club (optionnelle).
+     *
+     * @return int|null Identifiant du club créé ou null en cas d’échec.
      */
     public function createClub(string $name, string $description = ''): ?int
     {
@@ -58,7 +100,9 @@ class ClubManager
     }
 
     /**
-     * Retourne tous les clubs dont l'utilisateur courant est membre.
+     * Récupère tous les clubs dont l’utilisateur courant est membre.
+     *
+     * @return array Liste des clubs avec rôle de l’utilisateur.
      */
     public function getMyClubs(): array
     {
@@ -76,8 +120,14 @@ class ClubManager
     }
 
     /**
-     * Retourne les infos d'un club SI l'utilisateur courant en est membre.
-     * Ajoute la clé 'my_role' (owner / member) ou null si pas de droit.
+     * Récupère les informations d’un club si l’utilisateur courant en est membre.
+     *
+     * Ajoute la clé :
+     * - my_role : rôle de l’utilisateur dans le club (owner / member).
+     *
+     * @param int $clubId Identifiant du club.
+     *
+     * @return array|null Données du club ou null si accès non autorisé.
      */
     public function getClub(int $clubId): ?array
     {
@@ -101,7 +151,10 @@ class ClubManager
     }
 
     /**
-     * Vérifie si l'utilisateur courant est owner du club.
+     * Vérifie si l’utilisateur courant est propriétaire (owner) du club.
+     *
+     * @param int $clubId Identifiant du club.
+     * @return bool
      */
     public function isOwner(int $clubId): bool
     {
@@ -110,8 +163,18 @@ class ClubManager
     }
 
     /**
-     * Supprime complètement un club (seulement si l'utilisateur courant en est le créateur).
-     * Supprime aussi : membres, livres, messages, notifications liées au club.
+     * Supprime définitivement un club de lecture.
+     *
+     * Cette action est réservée au propriétaire du club.
+     * Sont également supprimés :
+     * - les messages du club,
+     * - les livres associés,
+     * - les membres,
+     * - les notifications liées au club.
+     *
+     * @param int $clubId Identifiant du club.
+     *
+     * @return bool True si la suppression a réussi, false sinon.
      */
     public function deleteClub(int $clubId): bool
     {
@@ -143,14 +206,14 @@ class ClubManager
             ");
             $stmt->execute([':cid' => $clubId]);
 
-            // Supprimer les notifications liées au club (invitations, etc.)
+            // Supprimer les notifications liées au club
             $stmt = $this->pdo->prepare("
                 DELETE FROM notifications
                 WHERE club_id = :cid
             ");
             $stmt->execute([':cid' => $clubId]);
 
-            // Supprimer le club lui-même
+            // Supprimer le club
             $stmt = $this->pdo->prepare("
                 DELETE FROM book_clubs
                 WHERE id = :cid
@@ -168,19 +231,23 @@ class ClubManager
     /* ================== Membres ================== */
 
     /**
-     * Liste des membres d'un club :
-     *  - id
-     *  - login
-     *  - avatar_choice (NULL = initiale)
-     *  - has_avatar (1 si un avatar prédéfini est choisi, 0 sinon)
-     *  - role
-     *  - joined_at
+     * Récupère la liste des membres d’un club.
      *
-     * L'utilisateur courant doit être membre du club.
+     * Informations retournées :
+     * - id utilisateur,
+     * - login,
+     * - avatar_choice,
+     * - has_avatar,
+     * - rôle dans le club,
+     * - date d’adhésion.
+     *
+     * L’utilisateur courant doit être membre du club.
+     *
+     * @param int $clubId Identifiant du club.
+     * @return array
      */
     public function getMembers(int $clubId): array
     {
-        // On vérifie l'accès au club
         if (!$this->getClub($clubId)) {
             return [];
         }
@@ -205,7 +272,14 @@ class ClubManager
     }
 
     /**
-     * Ajoute un membre au club (seulement si l'utilisateur courant est owner).
+     * Ajoute un utilisateur comme membre du club.
+     *
+     * Action réservée au propriétaire du club.
+     *
+     * @param int $clubId Identifiant du club.
+     * @param int $userId Identifiant de l’utilisateur à ajouter.
+     *
+     * @return bool
      */
     public function addMember(int $clubId, int $userId): bool
     {
@@ -213,7 +287,6 @@ class ClubManager
             return false;
         }
 
-        // On évite d'ajouter deux fois le même user
         $stmt = $this->pdo->prepare("
             INSERT IGNORE INTO book_club_members (club_id, user_id, role)
             VALUES (:cid, :uid, 'member')
@@ -226,7 +299,15 @@ class ClubManager
     }
 
     /**
-     * Retire un membre du club (owner uniquement, et on ne supprime pas l'owner).
+     * Retire un membre du club.
+     *
+     * Cette action est réservée au propriétaire
+     * et ne permet pas de supprimer l’owner.
+     *
+     * @param int $clubId Identifiant du club.
+     * @param int $userId Identifiant de l’utilisateur à retirer.
+     *
+     * @return bool
      */
     public function removeMember(int $clubId, int $userId): bool
     {
@@ -234,7 +315,6 @@ class ClubManager
             return false;
         }
 
-        // On interdit de supprimer le owner via cette méthode
         $stmt = $this->pdo->prepare("
             DELETE FROM book_club_members
             WHERE club_id = :cid
@@ -251,11 +331,14 @@ class ClubManager
     /* ================== Livres ================== */
 
     /**
-     * Liste des livres d'un club (google_book_id, added_by, added_at + title, authors, thumbnail).
+     * Récupère la liste des livres associés à un club.
      *
-     * On joint sur user_library pour récupérer les méta-données
-     * (titre, auteur(s), couverture) du livre ajouté par l'utilisateur
-     * (via added_by).
+     * Les métadonnées du livre (titre, auteurs, couverture)
+     * sont récupérées depuis la bibliothèque de l’utilisateur
+     * ayant ajouté le livre.
+     *
+     * @param int $clubId Identifiant du club.
+     * @return array
      */
     public function getBooks(int $clubId): array
     {
@@ -286,8 +369,14 @@ class ClubManager
     }
 
     /**
-     * Ajoute un livre (par son google_book_id) au club.
-     * L'utilisateur doit être membre du club.
+     * Ajoute un livre à un club à partir de son identifiant Google Books.
+     *
+     * L’utilisateur doit être membre du club.
+     *
+     * @param int    $clubId       Identifiant du club.
+     * @param string $googleBookId Identifiant Google Books du livre.
+     *
+     * @return bool
      */
     public function addBook(int $clubId, string $googleBookId): bool
     {
@@ -314,6 +403,11 @@ class ClubManager
 
     /**
      * Retire un livre du club.
+     *
+     * @param int    $clubId       Identifiant du club.
+     * @param string $googleBookId Identifiant Google Books du livre.
+     *
+     * @return bool
      */
     public function removeBook(int $clubId, string $googleBookId): bool
     {

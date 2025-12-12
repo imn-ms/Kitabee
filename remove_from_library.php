@@ -1,8 +1,22 @@
 <?php
-session_start();
-require __DIR__ . '/secret/config.php';
+/**
+ * remove_from_library.php — Retire un livre de la bibliothèque de l'utilisateur.
+ *
+ * Rôle :
+ * - Page protégée (utilisateur connecté).
+ * - Récupère book_id depuis POST.
+ * - Supprime la ligne correspondante dans user_library.
+ * - Redirige vers bibliotheque.php.
+ */
 
-if (!isset($_SESSION['user'])) {
+header('Content-Type: text/html; charset=UTF-8');
+session_start();
+
+require_once __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/secret/database.php';
+require_once __DIR__ . '/include/functions.inc.php';
+
+if (empty($_SESSION['user'])) {
     header('Location: connexion.php');
     exit;
 }
@@ -10,20 +24,13 @@ if (!isset($_SESSION['user'])) {
 $userId = (int)$_SESSION['user'];
 $bookId = $_POST['book_id'] ?? '';
 
-if (empty($bookId)) {
+if (trim($bookId) === '') {
     header('Location: bibliotheque.php');
     exit;
 }
 
-// Supprimer le livre de la bibliothèque
-$stmt = $pdo->prepare("
-    DELETE FROM user_library
-    WHERE user_id = :uid AND google_book_id = :bid
-");
-$stmt->execute([
-    ':uid' => $userId,
-    ':bid' => $bookId,
-]);
+// Suppression
+kb_remove_from_library($pdo, $userId, (string)$bookId);
 
 // Retour à la page bibliothèque
 header('Location: bibliotheque.php');

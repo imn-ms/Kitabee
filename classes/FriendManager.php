@@ -1,17 +1,61 @@
 <?php
 
+/**
+ * Class FriendManager
+ *
+ * Gestionnaire des relations d’amitié du projet Kitabee.
+ *
+ * Cette classe centralise toute la logique liée au système d’amis :
+ * - envoi de demandes d’ami,
+ * - acceptation / refus de demandes reçues,
+ * - suppression d’un ami,
+ * - récupération des listes (amis, demandes reçues, demandes envoyées).
+ *
+ * Elle s’appuie sur PDO pour les requêtes SQL et utilise l’utilisateur courant
+ * pour filtrer les actions et sécuriser les accès.
+ *
+ * Auteur : Imane MOUSSAOUI
+ * Projet : Kitabee
+ */
 class FriendManager
 {
+    /**
+     * Instance PDO pour l’accès à la base de données.
+     *
+     * @var PDO
+     */
     private PDO $pdo;
+
+    /**
+     * Identifiant de l’utilisateur courant.
+     *
+     * @var int
+     */
     private int $userId;
 
+    /**
+     * Constructeur du FriendManager.
+     *
+     * @param PDO $pdo    Connexion PDO à la base de données.
+     * @param int $userId Identifiant de l’utilisateur courant.
+     */
     public function __construct(PDO $pdo, int $userId)
     {
         $this->pdo    = $pdo;
         $this->userId = $userId;
     }
 
-    /** Envoyer une demande d'ami */
+    /**
+     * Envoie une demande d’ami à un autre utilisateur.
+     *
+     * Règles :
+     * - l’utilisateur ne peut pas s’ajouter lui-même,
+     * - si une relation existe déjà (dans un sens ou dans l’autre),
+     *   la demande est refusée.
+     *
+     * @param int $otherId Identifiant de l’utilisateur cible.
+     * @return bool True si la demande a été créée, false sinon.
+     */
     public function sendRequest(int $otherId): bool
     {
         if ($otherId === $this->userId) return false;
@@ -42,7 +86,17 @@ class FriendManager
         ]);
     }
 
-    /** Accepter une demande reçue */
+    /**
+     * Accepte une demande d’ami reçue.
+     *
+     * Ici, on accepte uniquement une demande où :
+     * - l’autre utilisateur est l’émetteur (user_id = them),
+     * - l’utilisateur courant est le receveur (friend_id = me),
+     * - le statut est encore "pending".
+     *
+     * @param int $otherId Identifiant de l’utilisateur ayant envoyé la demande.
+     * @return bool True si la mise à jour a réussi, false sinon.
+     */
     public function acceptRequest(int $otherId): bool
     {
         $stmt = $this->pdo->prepare("
@@ -58,7 +112,16 @@ class FriendManager
         ]);
     }
 
-    /** Refuser une demande */
+    /**
+     * Refuse (supprime) une demande d’ami reçue.
+     *
+     * La demande est supprimée uniquement si :
+     * - l’utilisateur courant est le destinataire,
+     * - le statut est "pending".
+     *
+     * @param int $otherId Identifiant de l’utilisateur ayant envoyé la demande.
+     * @return bool True si la suppression a réussi, false sinon.
+     */
     public function declineRequest(int $otherId): bool
     {
         $stmt = $this->pdo->prepare("
@@ -73,7 +136,15 @@ class FriendManager
         ]);
     }
 
-    /** Supprimer un ami */
+    /**
+     * Supprime une relation d’amitié (ou une demande existante) entre deux utilisateurs.
+     *
+     * La suppression se fait dans les deux sens :
+     * - (me -> them) OU (them -> me)
+     *
+     * @param int $otherId Identifiant de l’autre utilisateur.
+     * @return bool True si la suppression a réussi, false sinon.
+     */
     public function removeFriend(int $otherId): bool
     {
         $stmt = $this->pdo->prepare("
@@ -87,7 +158,16 @@ class FriendManager
         ]);
     }
 
-    /** Liste de mes amis */
+    /**
+     * Récupère la liste des amis de l’utilisateur courant.
+     *
+     * Retourne pour chaque ami :
+     * - id, login, email,
+     * - avatar_choice,
+     * - has_avatar (booléen : 1 si avatar défini, 0 sinon).
+     *
+     * @return array Liste des amis (tableau associatif).
+     */
     public function getFriends(): array
     {
         $sql = "
@@ -109,7 +189,15 @@ class FriendManager
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** Demandes reçues */
+    /**
+     * Récupère les demandes d’ami reçues par l’utilisateur courant.
+     *
+     * Une demande reçue est définie par :
+     * - status = 'pending'
+     * - friend_id = utilisateur courant
+     *
+     * @return array Liste des demandes reçues.
+     */
     public function getIncoming(): array
     {
         $sql = "
@@ -129,7 +217,15 @@ class FriendManager
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /** Demandes envoyées */
+    /**
+     * Récupère les demandes d’ami envoyées par l’utilisateur courant.
+     *
+     * Une demande envoyée est définie par :
+     * - status = 'pending'
+     * - user_id = utilisateur courant
+     *
+     * @return array Liste des demandes envoyées.
+     */
     public function getOutgoing(): array
     {
         $sql = "

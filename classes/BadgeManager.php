@@ -1,12 +1,41 @@
 <?php
 
+/**
+ * Class BadgeManager
+ *
+ * Gestionnaire des badges utilisateurs pour le projet Kitabee.
+ *
+ * Cette classe centralise :
+ * - la définition des badges,
+ * - la vérification des règles de déblocage,
+ * - l’attribution automatique des badges,
+ * - la récupération des badges d’un utilisateur.
+ *
+ * Elle est appelée après chaque action importante de l’utilisateur
+ *
+ * Auteur : Odessa TRIOLLET-PEREIRA
+ * Projet : Kitabee
+ */
 class BadgeManager
 {
+    /**
+     * Instance PDO pour l’accès à la base de données.
+     *
+     * @var PDO
+     */
     private PDO $pdo;
 
     /**
-     * Définition des badges.
-     * Tout est centralisé ici : code, nom, description, type, seuil...
+     * Définition centralisée des badges.
+     *
+     * Chaque badge contient :
+     * - un code unique,
+     * - un nom,
+     * - une description,
+     * - un type de règle,
+     * - un seuil éventuel.
+     *
+     * @var array
      */
     private array $definitions = [
         // ==== WISHLIST ====
@@ -85,14 +114,26 @@ class BadgeManager
         ],
     ];
 
+    /**
+     * Constructeur du BadgeManager.
+     *
+     * @param PDO $pdo Connexion PDO à la base de données.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
     /**
-     * on lutilise après une action (ajout wishlist, lecture, ami, avatar...).
-     * Retourne la liste des badges débloqués pendant cet appel.
+     * Vérifie l’ensemble des badges pour un utilisateur.
+     *
+     * Cette méthode est appelée après une action utilisateur
+     * (ajout à la wishlist, lecture terminée, ajout d’ami, avatar…).
+     *
+     * Elle retourne uniquement les badges débloqués lors de cet appel.
+     *
+     * @param int $userId Identifiant de l’utilisateur.
+     * @return array Liste des badges débloqués.
      */
     public function checkAllForUser(int $userId): array
     {
@@ -121,7 +162,13 @@ class BadgeManager
     }
 
     /**
-     * Vérifie la règle d'un badge en fonction de son type.
+     * Vérifie la règle d’un badge en fonction de son type.
+     *
+     * @param int    $userId Identifiant de l’utilisateur.
+     * @param string $code   Code du badge.
+     * @param array  $def    Définition du badge.
+     *
+     * @return bool True si la règle est validée.
      */
     private function checkRule(int $userId, string $code, array $def): bool
     {
@@ -152,6 +199,14 @@ class BadgeManager
        RÈGLES UNITAIRES
        ====================== */
 
+    /**
+     * Vérifie le nombre de livres dans la wishlist.
+     *
+     * @param int $userId   Identifiant de l’utilisateur.
+     * @param int $required Nombre minimum requis.
+     *
+     * @return bool
+     */
     private function checkWishlistCount(int $userId, int $required): bool
     {
         $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM user_wishlist WHERE user_id = :uid");
@@ -159,6 +214,14 @@ class BadgeManager
         return (int)$stmt->fetchColumn() >= $required;
     }
 
+    /**
+     * Vérifie le nombre total de livres lus.
+     *
+     * @param int $userId   Identifiant de l’utilisateur.
+     * @param int $required Nombre minimum requis.
+     *
+     * @return bool
+     */
     private function checkLibraryCount(int $userId, int $required): bool
     {
         $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM user_library WHERE user_id = :uid");
@@ -166,6 +229,14 @@ class BadgeManager
         return (int)$stmt->fetchColumn() >= $required;
     }
 
+    /**
+     * Vérifie les lectures sur les 30 derniers jours.
+     *
+     * @param int $userId   Identifiant de l’utilisateur.
+     * @param int $required Nombre minimum requis.
+     *
+     * @return bool
+     */
     private function checkLibraryLast30Days(int $userId, int $required): bool
     {
         $stmt = $this->pdo->prepare("
@@ -178,6 +249,14 @@ class BadgeManager
         return (int)$stmt->fetchColumn() >= $required;
     }
 
+    /**
+     * Vérifie le nombre d’amis acceptés.
+     *
+     * @param int $userId   Identifiant de l’utilisateur.
+     * @param int $required Nombre minimum requis.
+     *
+     * @return bool
+     */
     private function checkFriendsCount(int $userId, int $required): bool
     {
         $stmt = $this->pdo->prepare("
@@ -190,9 +269,14 @@ class BadgeManager
         return (int)$stmt->fetchColumn() >= $required;
     }
 
+    /**
+     * Vérifie si l’utilisateur a défini un avatar.
+     *
+     * @param int $userId Identifiant de l’utilisateur.
+     * @return bool
+     */
     private function checkAvatar(int $userId): bool
     {
-        // À adapter : avatar / avatar_has / autre colonne
         $stmt = $this->pdo->prepare("SELECT avatar_choice FROM users WHERE id = :uid");
         $stmt->execute([':uid' => $userId]);
         $avatar = $stmt->fetchColumn();
@@ -204,6 +288,14 @@ class BadgeManager
        ACCÈS BDD BADGES
        ====================== */
 
+    /**
+     * Vérifie si un utilisateur possède déjà un badge.
+     *
+     * @param int    $userId Identifiant de l’utilisateur.
+     * @param string $code   Code du badge.
+     *
+     * @return bool
+     */
     private function userHasBadge(int $userId, string $code): bool
     {
         $sql = "
@@ -222,9 +314,17 @@ class BadgeManager
         return (int)$stmt->fetchColumn() > 0;
     }
 
+    /**
+     * Débloque un badge pour un utilisateur.
+     *
+     * @param int    $userId Identifiant de l’utilisateur.
+     * @param string $code   Code du badge.
+     * @param array  $def    Définition du badge.
+     *
+     * @return int|null Identifiant du badge.
+     */
     private function unlockBadge(int $userId, string $code, array $def): ?int
     {
-        // on récupère / crée le badge en BDD
         $badgeId = $this->getOrCreateBadgeId($code, $def);
 
         if (!$badgeId) {
@@ -243,9 +343,16 @@ class BadgeManager
         return $badgeId;
     }
 
+    /**
+     * Récupère ou crée un badge en base de données.
+     *
+     * @param string $code Code du badge.
+     * @param array  $def  Définition du badge.
+     *
+     * @return int|null
+     */
     private function getOrCreateBadgeId(string $code, array $def): ?int
     {
-        // 1) essayer de trouver le badge
         $stmt = $this->pdo->prepare("SELECT id FROM badges WHERE code = :code");
         $stmt->execute([':code' => $code]);
         $id = $stmt->fetchColumn();
@@ -254,7 +361,6 @@ class BadgeManager
             return (int)$id;
         }
 
-        // 2) sinon, on le crée (nom + description depuis $definitions)
         $stmt = $this->pdo->prepare("
             INSERT INTO badges (code, name, description)
             VALUES (:code, :name, :description)
@@ -268,10 +374,12 @@ class BadgeManager
         return (int)$this->pdo->lastInsertId();
     }
 
-    /* ======================
-       RÉCUPÉRER LES BADGES D'UN USER
-       ====================== */
-
+    /**
+     * Récupère les badges débloqués par un utilisateur.
+     *
+     * @param int $userId Identifiant de l’utilisateur.
+     * @return array
+     */
     public function getUserBadges(int $userId): array
     {
         $stmt = $this->pdo->prepare("

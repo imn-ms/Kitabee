@@ -1,29 +1,24 @@
 <?php
-// inscription.php — formulaire d'inscription avec reCAPTCHA + envoi via PHPMailer
+/**
+ * inscription.php — formulaire d'inscription avec reCAPTCHA + envoi via PHPMailer
+ *
+ * Rôle :
+ * - Affiche le formulaire d'inscription (login, email, mot de passe).
+ * - Vérifie la validité des champs + robustesse du mot de passe.
+ * - Vérifie le reCAPTCHA côté serveur.
+ * - Crée le compte en base (is_active = 0) avec un token d'activation.
+ * - Envoie un e-mail d'activation via sendMail().
+ */
+
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
+
 require_once __DIR__ . '/secret/database.php';
 require_once __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/include/functions.inc.php';
 
 $pageTitle = "Inscription – Kitabee";
 $message = $error = null;
-
-/**
- * Vérifie la robustesse du mot de passe :
- * - longueur >= 6
- * - au moins 1 majuscule
- * - au moins 1 minuscule
- * - au moins 1 chiffre
- * - au moins 1 caractère spécial
- */
-function is_strong_password(string $pwd): bool {
-    if (strlen($pwd) < 6) return false;
-    if (!preg_match('/[A-Z]/', $pwd)) return false;
-    if (!preg_match('/[a-z]/', $pwd)) return false;
-    if (!preg_match('/[0-9]/', $pwd)) return false;
-    if (!preg_match('/[^A-Za-z0-9]/', $pwd)) return false;
-    return true;
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $login    = trim($_POST['login'] ?? '');
@@ -36,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Veuillez remplir tous les champs.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Adresse e-mail invalide.";
-    } elseif (!is_strong_password($password)) {
+    } elseif (!kb_is_strong_password($password)) {
         $error = "Le mot de passe doit contenir au moins 6 caractères, avec au minimum une majuscule, une minuscule, un chiffre et un caractère spécial.";
     } elseif ($captchaResponse === '') {
         $error = "Veuillez valider le CAPTCHA.";

@@ -1,11 +1,60 @@
 <?php
+
+/**
+ * Class RecommendationService
+ *
+ * Service de recommandation de livres pour le projet Kitabee.
+ *
+ * Cette classe génère des recommandations personnalisées à partir :
+ * - de la bibliothèque personnelle de l’utilisateur,
+ * - des genres des livres lus,
+ * - des auteurs consultés,
+ * - de l’état émotionnel choisi par l’utilisateur.
+ *
+ * Les recommandations s’appuient sur l’API Google Books
+ * et appliquent des filtres spécifiques pour privilégier
+ * les ouvrages en langue française.
+ *
+ * Auteur : Odessa TRIOLLET-PEREIRA
+ * Projet : Kitabee
+ */
 class RecommendationService
 {
+    /**
+     * Connexion PDO à la base de données.
+     *
+     * @var PDO
+     */
     private $pdo;
+
+    /**
+     * Identifiant de l’utilisateur courant.
+     *
+     * @var int
+     */
     private $userId;
+
+    /**
+     * Clé API Google Books (optionnelle).
+     *
+     * @var string|null
+     */
     private $apiKey;
+
+    /**
+     * URL de base de l’API Google Books.
+     *
+     * @var string
+     */
     private $googleApiBase = 'https://www.googleapis.com/books/v1/volumes';
 
+    /**
+     * Constructeur du service de recommandation.
+     *
+     * @param PDO        $pdo    Connexion PDO à la base de données.
+     * @param int        $userId Identifiant de l’utilisateur.
+     * @param string|null $apiKey Clé API Google Books (optionnelle).
+     */
     public function __construct($pdo, $userId, $apiKey = null)
     {
         $this->pdo    = $pdo;
@@ -13,6 +62,12 @@ class RecommendationService
         $this->apiKey = $apiKey;
     }
 
+    /**
+     * Récupère les identifiants Google Books des livres
+     * présents dans la bibliothèque de l’utilisateur.
+     *
+     * @return array Liste des google_book_id.
+     */
     private function getUserGoogleBooksIds()
     {
         $sql = "SELECT google_book_id
@@ -24,6 +79,15 @@ class RecommendationService
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
     }
 
+    /**
+     * Récupère et décode une réponse JSON depuis une URL.
+     *
+     * Tente d’abord via file_get_contents,
+     * puis via cURL si disponible.
+     *
+     * @param string $url URL à interroger.
+     * @return array|null Données JSON décodées ou null en cas d’échec.
+     */
     private function fetchJson($url)
     {
         $json = @file_get_contents($url);
@@ -43,6 +107,13 @@ class RecommendationService
         return null;
     }
 
+    /**
+     * Récupère les informations complètes d’un livre
+     * à partir de son identifiant Google Books.
+     *
+     * @param string $googleId Identifiant Google Books.
+     * @return array|null Données du volume ou null.
+     */
     private function fetchVolume($googleId)
     {
         $url = $this->googleApiBase . '/' . urlencode($googleId);
@@ -50,21 +121,30 @@ class RecommendationService
         return $this->fetchJson($url) ?: null;
     }
 
-    /** ===== FILTRE TITRE FR ===== */
+    /**
+     * Détermine si un titre peut être considéré comme français.
+     *
+     * Le filtrage se base sur :
+     * - la langue déclarée par l’API,
+     * - la présence d’accents typiquement français,
+     * - l’exclusion de mots-clés majoritairement anglais.
+     *
+     * @param string $title Titre du livre.
+     * @param string $lang  Code langue du livre.
+     * @return bool
+     */
     private function isFrenchTitle($title, $lang)
     {
         $titleLower = mb_strtolower($title, 'UTF-8');
-        // Si la langue est FR, c’est bon
+
         if (in_array($lang, ['fr', 'fr-fr', 'fr-FR'])) {
             return true;
         }
 
-        // S’il y a des accents typiques du français
         if (preg_match('/[éèêëàâîïôöûüç]/u', $titleLower)) {
             return true;
         }
 
-        // On exclut les titres trop anglais
         $englishWords = [' the ', ' of ', ' and ', ' love ', ' girl ', ' man ', ' war ', 'life', 'story'];
         foreach ($englishWords as $w) {
             if (str_contains($titleLower, $w)) {
@@ -72,11 +152,19 @@ class RecommendationService
             }
         }
 
-        // S’il n’y a pas de mot anglais suspect → on garde
         return true;
     }
 
-    /** ===== Recherche filtrée FR ===== */
+    /**
+     * Recherche des livres via Google Books
+     * en appliquant un filtre renforcé pour le français.
+     *
+     * @param string $query       Requête de recherche.
+     * @param int    $maxResults  Nombre maximum de résultats.
+     * @param int    $startIndex  Index de départ.
+     *
+     * @return array Liste de volumes filtrés.
+     */
     private function searchVolumesFr($query, $maxResults = 6, $startIndex = 0)
     {
         $url = $this->googleApiBase
@@ -103,6 +191,16 @@ class RecommendationService
         return $frItems;
     }
 
+    /**
+     * Recherche des livres français avec plusieurs tentatives
+     * afin de garantir un nombre suffisant de résultats uniques.
+     *
+     * @param string $query   Requête de recherche.
+     * @param int    $needed Nombre de résultats souhaités.
+     * @param int    $variant Variante aléatoire.
+     *
+     * @return array
+     */
     private function searchVolumesFrWithRetries($query, $needed = 6, $variant = 0)
     {
         $results = [];
@@ -120,7 +218,17 @@ class RecommendationService
         return array_values($results);
     }
 
-    /* ===================== RECO GENRES ===================== */
+    /* ===================== RECOMMANDATIONS PAR GENRES ===================== */
+
+    /**
+     * Génère des recommandations basées sur les genres
+     * des livres lus par l’utilisateur.
+     *
+     * @param int $limit   Nombre de recommandations.
+     * @param int $variant Variante aléatoire.
+     *
+     * @return array
+     */
     public function getByUserGenres($limit = 6, $variant = 0)
     {
         $userBookIds = $this->getUserGoogleBooksIds();
@@ -161,7 +269,17 @@ class RecommendationService
         return array_values($results);
     }
 
-    /* ===================== RECO AUTEURS ===================== */
+    /* ===================== RECOMMANDATIONS PAR AUTEURS ===================== */
+
+    /**
+     * Génère des recommandations basées sur les auteurs
+     * des livres lus par l’utilisateur.
+     *
+     * @param int $limit   Nombre de recommandations.
+     * @param int $variant Variante aléatoire.
+     *
+     * @return array
+     */
     public function getByUserAuthors($limit = 6, $variant = 0)
     {
         $userBookIds = $this->getUserGoogleBooksIds();
@@ -202,7 +320,17 @@ class RecommendationService
         return array_values($results);
     }
 
-    /* ===================== RECO EMOTION ===================== */
+    /* ===================== RECOMMANDATIONS PAR ÉMOTION ===================== */
+
+    /**
+     * Génère des recommandations basées sur l’émotion choisie.
+     *
+     * @param string $emotion Émotion sélectionnée.
+     * @param int    $limit   Nombre de recommandations.
+     * @param int    $variant Variante aléatoire.
+     *
+     * @return array
+     */
     public function getByEmotion($emotion, $limit = 6, $variant = 0)
     {
         $emotionMap = [

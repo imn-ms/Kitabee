@@ -1,6 +1,24 @@
 <?php
+/**
+ * bibliotheque.php
+ *
+ * Page “Ma bibliothèque” du projet Kitabee.
+ *
+ * Cette page affiche :
+ * - les livres “lus” (table user_library),
+ * - les livres “à lire” (table user_wishlist),
+ * - une barre de recherche avec autocomplétion (JS),
+ * - un bouton “Je l’ai lu” permettant de déplacer un livre de la wishlist
+ *   vers la bibliothèque 
+ *
+ * Auteur : TRIOLLET-PEREIRA Odessa
+ * Projet : Kitabee
+ */
+
 session_start();
-require __DIR__ . '/secret/config.php'; 
+require __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/include/functions.inc.php';
+
 $pageTitle = "Ma bibliothèque - Kitabee";
 
 if (!isset($_SESSION['user'])) {
@@ -12,25 +30,12 @@ $userId = (int)$_SESSION['user'];
 
 include 'include/header.inc.php';
 
-// ======= Récupérer les livres de la bibliothèque (lus) =======
-$stmt = $pdo->prepare("
-    SELECT google_book_id, title, authors, thumbnail
-    FROM user_library
-    WHERE user_id = :uid
-    ORDER BY added_at DESC
-");
-$stmt->execute([':uid' => $userId]);
-$libraryBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// ======= Récupérer les livres de la wishlist (à lire) =======
-$stmt = $pdo->prepare("
-    SELECT google_book_id, title, authors, thumbnail
-    FROM user_wishlist
-    WHERE user_id = :uid
-    ORDER BY added_at DESC
-");
-$stmt->execute([':uid' => $userId]);
-$wishlistBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+/**
+ * Récupération des livres de l’utilisateur (bibliothèque + wishlist)
+ */
+$data = kb_get_user_library_and_wishlist($pdo, $userId);
+$libraryBooks  = $data['library'];
+$wishlistBooks = $data['wishlist'];
 ?>
 <section class="section">
   <div class="container">
@@ -125,13 +130,14 @@ $wishlistBooks = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </button>
             </form>
 
-            <!-- Bouton : Retirer de la wishlist utile ou pas ????
+            <!-- Bouton : Retirer de la wishlist
             <form action="remove_from_wishlist.php" method="post">
               <input type="hidden" name="book_id" value="<?= htmlspecialchars($googleId, ENT_QUOTES, 'UTF-8') ?>">
               <button type="submit" class="btn-lire" style="font-size:.75rem;padding:4px 6px;">
                 ❌ Retirer
-              </button>-->
+              </button>
             </form>
+            -->
           </div>
         <?php endforeach; ?>
       </div>
