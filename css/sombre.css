@@ -653,6 +653,10 @@ a {
   transition: background .3s ease;
   z-index: 20;
 }
+
+.back-to-top {
+  padding-top: 2px;
+}
 .back-to-top:hover { background: var(--brand-dark); }
 #backToTop { display: none; }
 

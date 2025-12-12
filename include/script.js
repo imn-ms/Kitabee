@@ -127,7 +127,7 @@
     const SHOW_AFTER = 250;
 
     const toggleBackToTop = () => {
-      backToTop.style.display = (window.scrollY > SHOW_AFTER) ? 'block' : 'none';
+      backToTop.style.display = (window.scrollY > SHOW_AFTER) ? 'flex' : 'none';
     };
 
     window.addEventListener('scroll', toggleBackToTop, { passive: true });

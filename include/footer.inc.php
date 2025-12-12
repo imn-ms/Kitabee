@@ -1,4 +1,4 @@
-<a href="#top" id="backToTop" class="back-to-top" aria-label="Revenir en haut">↑</a>
+<a href="#top" id="backToTop" class="back-to-top" aria-label="Revenir en haut">⬆</a>
 </main>
 
 <footer class="site-footer">
