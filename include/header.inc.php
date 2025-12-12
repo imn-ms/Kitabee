@@ -145,12 +145,12 @@ $last_visit            = $ctx['last_visit'];
         </button>
       </form>
 
-      <!-- Outils d’accessibilité -->
-      <div class="accessibility-tools" aria-label="Options d’accessibilité">
+      <div class="accessibility-tools">
         <button type="button" class="font-btn" data-font="small" aria-label="Diminuer la taille du texte">A-</button>
         <button type="button" class="font-btn" data-font="normal" aria-label="Taille de texte normale">A</button>
         <button type="button" class="font-btn" data-font="large" aria-label="Augmenter la taille du texte">A+</button>
       </div>
+
 
       <!-- Bouton Google Translate -->
       <button id="custom-translate-btn"
