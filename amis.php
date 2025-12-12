@@ -154,7 +154,7 @@ $searchResults = [];
 
 if ($searchTerm !== '') {
     $stmt = $pdo->prepare("
-        SELECT id, login, avatar, email
+        SELECT id, login, avatar_choice, email
         FROM users
         WHERE (login LIKE :term OR email LIKE :term)
           AND id <> :me
@@ -289,7 +289,7 @@ include __DIR__ . '/include/header.inc.php';
           <?php foreach ($incomingRequests as $req): ?>
             <li style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 8px; border-radius:10px; background:#fefce8;">
               <div style="display:flex; align-items:center; gap:8px;">
-                <?php if (!empty($req['avatar'])): ?>
+                <?php if (!empty($req['avatar_choice'])): ?>
                   <img src="avatar.php?id=<?= (int)$req['user_id'] ?>"
                        alt=""
                        style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
@@ -335,7 +335,7 @@ include __DIR__ . '/include/header.inc.php';
           <?php foreach ($friends as $f): ?>
             <li style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:10px; background:#f9fafb;">
               <div style="display:flex; align-items:center; gap:8px;">
-                <?php if (!empty($f['avatar'])): ?>
+                <?php if (!empty($f['avatar_choice'])): ?>
                   <img src="avatar.php?id=<?= (int)$f['friend_id'] ?>"
                        alt=""
                        style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
