@@ -255,7 +255,7 @@
   /* ========= Club : AJAX + tabs (club.php) ========= */
   function initClubPage() {
     // Récupération du club id depuis <body data-club-id="123">
-    const clubIdStr = document.body?.dataset?.clubId;
+    const clubIdStr = document.documentElement.dataset.clubId;
     const CLUB_ID = clubIdStr ? Number(clubIdStr) : NaN;
     if (!Number.isFinite(CLUB_ID)) return; // pas sur club.php
 
