@@ -27,6 +27,25 @@ $data = json_decode($response, true);
 ?>
 
 <div class="page-livre">
+      <!-- ===== Barre de recherche avec autocomplétion ===== -->
+      <div class="section">
+      <div class="container">
+        <div class="search-wrapper">
+          <form id="searchForm" action="livre.php" method="GET" class="search-bar" aria-label="Recherche de livre">
+            <input 
+              id="q" 
+              name="q" 
+              type="text" 
+              placeholder="Rechercher un livre, un auteur…" 
+              autocomplete="off" 
+              required
+            >
+            <button type="submit" class="btn btn-primary">🔍</button>
+          </form>
+          <ul id="suggestions" class="suggestions"></ul>
+        </div>
+      </div>
+    </div>
   <h1>Résultats pour « <?= htmlspecialchars($query) ?> »</h1>
 
   <?php if (!empty($data['items'])): ?>

@@ -1,9 +1,11 @@
 <?php
 /**
- * contact.php – Page Contact / À propos
+ * contact.php – Page Contact / À propos (avec Google reCAPTCHA v2)
  */
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
+
+require __DIR__ . '/secret/config.php';
 
 $pageTitle = "Contact – Kitabee";
 include 'include/header.inc.php';
@@ -11,107 +13,73 @@ include 'include/header.inc.php';
 $success = null;
 $error   = null;
 
-/**
- * Génère un captcha "texte" (pas un calcul).
- */
-function generateCaptcha(): void {
-    // quelques mots liés au projet
-    $words = ['kitabee', 'lecture', 'livre', 'biblio', 'auteur', 'roman', 'club'];
-    $selectedWord = $words[array_rand($words)];
-
-    // 3 types de captcha
-    $types = ['copy', 'letter', 'lower'];
-    $type  = $types[array_rand($types)];
-
-    switch ($type) {
-        case 'copy':
-            $question = "Recopie exactement ce mot : « $selectedWord »";
-            $answer   = $selectedWord; // on vérifiera en exact
-            $mode     = 'exact';
-            break;
-
-        case 'letter':
-            // on demande une position entre 1 et la longueur du mot
-            $len = mb_strlen($selectedWord, 'UTF-8');
-            $pos = random_int(1, $len); // position humaine
-            $question = "Donne la {$pos}ᵉ lettre du mot « $selectedWord »";
-            // extraire la lettre
-            $answer = mb_substr($selectedWord, $pos - 1, 1, 'UTF-8');
-            $mode   = 'lower';
-            break;
-
-        case 'lower':
-        default:
-            $question = "Écris ce mot en minuscules : « " . strtoupper($selectedWord) . " »";
-            $answer   = $selectedWord; // on attend en minuscules
-            $mode     = 'lower';
-            break;
-    }
-
-    $_SESSION['captcha_question'] = $question;
-    $_SESSION['captcha_answer']   = $answer;
-    $_SESSION['captcha_mode']     = $mode;
-}
-
-// Générer le captcha si on arrive sur la page
-if (!isset($_SESSION['captcha_question'])) {
-    generateCaptcha();
-}
-
 // ==== Traitement du formulaire ====
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nom     = trim($_POST['nom'] ?? '');
-    $email   = trim($_POST['email'] ?? '');
-    $sujet   = trim($_POST['sujet'] ?? '');
-    $message = trim($_POST['message'] ?? '');
-    $captcha = trim($_POST['captcha'] ?? '');
+$nom     = trim($_POST['nom'] ?? '');
+$email   = trim($_POST['email'] ?? '');
+$sujet   = trim($_POST['sujet'] ?? '');
+$message = trim($_POST['message'] ?? '');
 
-    if ($nom === '' || $email === '' || $message === '' || $captcha === '') {
-        $error = "Merci de remplir tous les champs obligatoires (*), y compris le captcha.";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // Champs requis
+    if ($nom === '' || $email === '' || $message === '') {
+        $error = "Merci de remplir tous les champs obligatoires (*), y compris le reCAPTCHA.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "L'adresse e-mail saisie n'est pas valide.";
-    } else {
-        // Vérif captcha
-        $expected = $_SESSION['captcha_answer'] ?? '';
-        $mode     = $_SESSION['captcha_mode'] ?? 'lower';
+    }
 
-        $isValidCaptcha = false;
-        if ($mode === 'exact') {
-            // on compare tel quel
-            $isValidCaptcha = ($captcha === $expected);
+    // ✅ Vérification reCAPTCHA côté serveur
+    if (!$error) {
+        $token = $_POST['g-recaptcha-response'] ?? '';
+        if ($token === '') {
+            $error = "Veuillez valider le reCAPTCHA.";
         } else {
-            // on compare en minuscules
-            $isValidCaptcha = (mb_strtolower($captcha, 'UTF-8') === mb_strtolower($expected, 'UTF-8'));
-        }
+            $verifyUrl = "https://www.google.com/recaptcha/api/siteverify";
+            $postData  = http_build_query([
+                'secret'   => RECAPTCHA_SECRET_KEY,
+                'response' => $token,
+                'remoteip' => $_SERVER['REMOTE_ADDR'] ?? null,
+            ]);
 
-        if (!$isValidCaptcha) {
-            $error = "Le captcha est incorrect. Réessayez.";
-            generateCaptcha();
-        } else {
-            // tout est ok, on envoie le mail
-            $to      = "kitabee@alwaysdata.net";
-            $subject = $sujet !== '' ? $sujet : "Nouveau message depuis le formulaire Kitabee";
+            $opts = [
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+                    'content' => $postData,
+                    'timeout' => 8,
+                ]
+            ];
 
-            $body  = "Message envoyé depuis le formulaire de contact Kitabee :\n\n";
-            $body .= "Nom : $nom\n";
-            $body .= "E-mail : $email\n";
-            $body .= "Sujet : $sujet\n\n";
-            $body .= "Message :\n$message\n";
+            $context = stream_context_create($opts);
+            $verify  = file_get_contents($verifyUrl, false, $context);
+            $captcha = $verify ? json_decode($verify, true) : null;
 
-            $headers  = "From: $nom <$email>\r\n";
-            $headers .= "Reply-To: $email\r\n";
-            $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-
-            if (mail($to, $subject, $body, $headers)) {
-                $success = "Merci ! Votre message a bien été envoyé.";
-                // régénérer un captcha pour la prochaine fois
-                generateCaptcha();
-                // vider les champs
-                $nom = $email = $sujet = $message = '';
-            } else {
-                $error = "Une erreur est survenue lors de l’envoi du message.";
-                generateCaptcha();
+            if (empty($captcha['success'])) {
+                $error = "Échec reCAPTCHA. Réessayez.";
             }
+        }
+    }
+
+    // ✅ Si OK, on envoie le mail
+    if (!$error) {
+        $to      = "kitabee@alwaysdata.net";
+        $subject = $sujet !== '' ? $sujet : "Nouveau message depuis le formulaire Kitabee";
+
+        $body  = "Message envoyé depuis le formulaire de contact Kitabee :\n\n";
+        $body .= "Nom : $nom\n";
+        $body .= "E-mail : $email\n";
+        $body .= "Sujet : $sujet\n\n";
+        $body .= "Message :\n$message\n";
+
+        $headers  = "From: $nom <$email>\r\n";
+        $headers .= "Reply-To: $email\r\n";
+        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+
+        if (@mail($to, $subject, $body, $headers)) {
+            $success = "Merci ! Votre message a bien été envoyé.";
+            $nom = $email = $sujet = $message = '';
+        } else {
+            $error = "Une erreur est survenue lors de l’envoi du message.";
         }
     }
 }
@@ -147,11 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <p class="contact-subtext">Écrivez-nous via ce formulaire, nous recevons le message sur l’adresse du projet.</p>
 
       <?php if ($success): ?>
-        <div class="alert-success"><?= htmlspecialchars($success) ?></div>
+        <div class="alert-success"><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></div>
       <?php endif; ?>
 
       <?php if ($error): ?>
-        <div class="alert-error"><?= htmlspecialchars($error) ?></div>
+        <div class="alert-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
       <?php endif; ?>
 
       <form method="post" action="contact.php" class="contact-form" novalidate>
@@ -162,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             id="nom"
             name="nom"
             required
-            value="<?= htmlspecialchars($nom ?? ($_POST['nom'] ?? '')) ?>">
+            value="<?= htmlspecialchars($nom, ENT_QUOTES, 'UTF-8') ?>">
         </div>
 
         <div>
@@ -172,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             id="email"
             name="email"
             required
-            value="<?= htmlspecialchars($email ?? ($_POST['email'] ?? '')) ?>">
+            value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>">
         </div>
 
         <div>
@@ -181,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             type="text"
             id="sujet"
             name="sujet"
-            value="<?= htmlspecialchars($sujet ?? ($_POST['sujet'] ?? '')) ?>">
+            value="<?= htmlspecialchars($sujet, ENT_QUOTES, 'UTF-8') ?>">
         </div>
 
         <div>
@@ -190,21 +158,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             id="message"
             name="message"
             rows="6"
-            required><?= htmlspecialchars($message ?? ($_POST['message'] ?? '')) ?></textarea>
+            required><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></textarea>
         </div>
 
-        <!-- Captcha texte -->
-        <div>
-          <label for="captcha">Captcha *</label>
-          <p style="margin:4px 0 8px; color:#666; font-size:.9rem;">
-            <?= htmlspecialchars($_SESSION['captcha_question'] ?? '') ?>
-          </p>
-          <input
-            type="text"
-            id="captcha"
-            name="captcha"
-            required
-            placeholder="Votre réponse">
+        <!-- ✅ reCAPTCHA -->
+        <div style="margin-top:6px;">
+          <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars(RECAPTCHA_SITE_KEY, ENT_QUOTES, 'UTF-8') ?>"></div>
         </div>
 
         <div>
@@ -303,4 +262,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <?php include 'include/footer.inc.php'; ?>
-

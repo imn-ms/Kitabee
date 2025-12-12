@@ -1,3 +1,4 @@
+<a href="#top" id="backToTop" class="back-to-top" aria-label="Revenir en haut">↑</a>
 </main>
 
 <footer class="site-footer">
@@ -28,7 +29,7 @@
       <h3>Contact</h3>
       <ul class="footer-contact">
         <li>📍 CY Cergy Université, France</li>
-        <li>📧 <a href="mailto:contact@kitabee.fr">contact@kitabee.fr</a></li>
+        <li>📧 <a href="mailto:kitabee@alwaysdata.net">kitabee@alwaysdata.net</a></li>
         <li>📞 +33 6 12 34 56 78</li>
       </ul>
     </div>
@@ -51,107 +52,6 @@
       Tous droits réservés.</p>
   </div>
 </footer>
-
-<!-- === Scripts === -->
-<script>
-  // Choix du moteur de recherche
-  const ENGINES = {
-    google: { action: 'https://www.google.com/search', param: 'q' },
-    bing:   { action: 'https://www.bing.com/search',   param: 'q' },
-    ddg:    { action: 'https://duckduckgo.com/',       param: 'q' },
-    qwant:  { action: 'https://www.qwant.com/',        param: 'q' },
-  };
-
-  const form = document.getElementById('searchForm');
-  const engineSelect = document.getElementById('engine');
-  const queryInput = document.getElementById('q');
-
-  function applyEngine() {
-    if (!form || !engineSelect || !queryInput) return;
-    const { action, param } = ENGINES[engineSelect.value];
-    form.action = action;
-    queryInput.name = param;
-  }
-
-  if (engineSelect) {
-    engineSelect.addEventListener('change', applyEngine);
-    applyEngine();
-  }
-
-  // Bouton retour en haut
-  (function() {
-    const backToTop = document.getElementById('backToTop');
-    if (!backToTop) return;
-
-    const SHOW_AFTER = 200; // px
-
-    function toggleBackToTop() {
-      backToTop.style.display = (window.scrollY > SHOW_AFTER) ? 'block' : 'none';
-    }
-
-    window.addEventListener('scroll', toggleBackToTop, { passive: true });
-    window.addEventListener('load', toggleBackToTop);
-
-    backToTop.addEventListener('click', function(e) {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  })();
-</script>
-
-<a href="#top" id="backToTop" class="back-to-top" aria-label="Revenir en haut">↑</a>
-
-<!-- === Script Accessibilité A- A A+ === -->
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const buttons = document.querySelectorAll('.font-btn');
-  const body = document.body;
-
-  // Récupérer la préférence enregistrée
-  const savedFont = localStorage.getItem('kitabee_font_size') || 'normal';
-
-  // Appliquer la classe au body
-  applyFontClass(savedFont);
-
-  // Marquer le bon bouton comme actif
-  updateActiveButton(savedFont);
-
-  buttons.forEach(btn => {
-    btn.addEventListener('click', function () {
-      const size = this.getAttribute('data-font');
-      applyFontClass(size);
-      updateActiveButton(size);
-      localStorage.setItem('kitabee_font_size', size);
-    });
-  });
-
-  function applyFontClass(size) {
-    body.classList.remove('font-small', 'font-normal', 'font-large');
-    switch (size) {
-      case 'small':
-        body.classList.add('font-small');
-        break;
-      case 'large':
-        body.classList.add('font-large');
-        break;
-      default:
-        body.classList.add('font-normal');
-    }
-  }
-
-  function updateActiveButton(size) {
-    buttons.forEach(b => {
-      if (b.getAttribute('data-font') === size) {
-        b.classList.add('is-active');
-        b.setAttribute('aria-pressed', 'true');
-      } else {
-        b.classList.remove('is-active');
-        b.setAttribute('aria-pressed', 'false');
-      }
-    });
-  }
-});
-</script>
 
 </body>
 </html>

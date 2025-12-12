@@ -23,13 +23,13 @@ try {
 
 
 /* =====================================================
-   2) Supprimer les comptes non activés depuis +30 jours
+   2) Supprimer les comptes non activés depuis +24 heures
    ===================================================== */
 try {
     $pdo->exec("
         DELETE FROM users
         WHERE is_active = 0
-          AND created_at < NOW() - INTERVAL 30 DAY
+          AND created_at < NOW() - INTERVAL 1 DAY
     ");
     echo "Comptes inactifs supprimés.\n";
 } catch (Exception $e) {

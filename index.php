@@ -18,7 +18,7 @@ $pageTitle = "Accueil Kitabee";
 // 2) header après, pour utiliser $pageTitle
 include 'include/header.inc.php';
 
-// 3) petite sélection Google Books (on le fait ici)
+// 3) petite sélection Google Books
 $googleBooks = [];
 $apiUrl = "https://www.googleapis.com/books/v1/volumes?q=subject:fiction&langRestrict=fr&maxResults=6&key={$GOOGLE_API_KEY}";
 $apiResponse = @file_get_contents($apiUrl);
@@ -72,25 +72,25 @@ if ($apiResponse) {
   </div>
 </section>
 
-<!-- ===== Recherche ===== -->
-<section class="section">
-  <div class="container">
-    <div class="search-wrapper">
-      <form id="searchForm" action="livre.php" method="GET" class="search-bar" aria-label="Recherche de livre">
-        <input 
-          id="q" 
-          name="q" 
-          type="text" 
-          placeholder="Rechercher un livre, un auteur…" 
-          autocomplete="off" 
-          required
-        >
-        <button type="submit" class="btn btn-primary">🔍</button>
-      </form>
-      <ul id="suggestions" class="suggestions" aria-label="Suggestions de recherche"></ul>
+      <!-- ===== Barre de recherche avec autocomplétion ===== -->
+      <div class="section">
+      <div class="container">
+        <div class="search-wrapper">
+          <form id="searchForm" action="livre.php" method="GET" class="search-bar" aria-label="Recherche de livre">
+            <input 
+              id="q" 
+              name="q" 
+              type="text" 
+              placeholder="Rechercher un livre, un auteur…" 
+              autocomplete="off" 
+              required
+            >
+            <button type="submit" class="btn btn-primary">🔍</button>
+          </form>
+          <ul id="suggestions" class="suggestions"></ul>
+        </div>
+      </div>
     </div>
-  </div>
-</section>
 
 <!-- ===== Features ===== -->
 <section id="features" class="section">
@@ -125,8 +125,6 @@ $topics = [
   'subject:science', 'subject:philosophy', 'subject:psychology',
   'subject:education', 'subject:religion', 'subject:travel', 'subject:art',
   'subject:music', 'subject:architecture', 'subject:design', 'subject:photography',
-
-  'subject:juvenile', 'subject:young adult', 'subject:children',
 
   'subject:comics', 'subject:graphic novels', 'subject:manga',
 
@@ -203,47 +201,4 @@ $topicName = ucfirst(str_replace(['subject:', '_'], ['', ' '], explode(':', $top
     </div>
   </div>
 </div>
-
-<?php if (!$visited): ?>
-  <div class="first-visit">
-    Première visite détectée. Rafraîchis la page pour appliquer ton thème.
-  </div>
-<?php endif; ?>
-
-<script>
-// ===== Autocomplétion Google Books =====
-const input = document.getElementById('q');
-const suggestions = document.getElementById('suggestions');
-let timer;
-
-input.addEventListener('input', () => {
-  clearTimeout(timer);
-  const query = input.value.trim();
-  if (query.length < 2) {
-    suggestions.innerHTML = '';
-    return;
-  }
-  timer = setTimeout(() => {
-    fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`)
-      .then(res => res.json())
-      .then(data => {
-        suggestions.innerHTML = '';
-        if (data.items) {
-          data.items.forEach(book => {
-            const title = book.volumeInfo?.title || 'Titre inconnu';
-            const li = document.createElement('li');
-            li.textContent = title;
-            li.addEventListener('click', () => {
-              input.value = title;
-              suggestions.innerHTML = '';
-            });
-            suggestions.appendChild(li);
-          });
-        }
-      })
-      .catch(() => suggestions.innerHTML = '');
-  }, 300);
-});
-</script>
-
 <?php include("include/footer.inc.php"); ?>

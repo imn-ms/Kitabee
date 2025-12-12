@@ -189,7 +189,7 @@ $stmt = $pdo->prepare("
         ELSE uf.user_id
       END AS friend_id,
       u.login,
-      u.avatar
+      u.avatar_choice
     FROM user_friends uf
     JOIN users u ON u.id = CASE 
                               WHEN uf.user_id = :me THEN uf.friend_id

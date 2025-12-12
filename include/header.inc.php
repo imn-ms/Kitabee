@@ -10,11 +10,27 @@ if (session_status() === PHP_SESSION_NONE) {
 /* ========= UTILISATEUR ========= */
 $loggedUserId     = $_SESSION['user']  ?? null;
 $loggedLogin      = $_SESSION['login'] ?? null;
-/**
- * Doit être mis à jour dans profil_user.php :
- * $_SESSION['avatar_has'] = !empty($avatarData);
- */
-$loggedHasAvatar  = $_SESSION['avatar_has'] ?? false;
+
+/* ========= AVATAR (NOUVEAU SYSTEME avatar_choice) =========
+   On sécurise : on calcule $loggedHasAvatar depuis la BD
+   (avatar_choice non NULL => avatar choisi, sinon initiale)
+*/
+$loggedHasAvatar = false;
+
+if ($loggedUserId && isset($pdo)) {
+    try {
+        $stmtAv = $pdo->prepare("SELECT avatar_choice FROM users WHERE id = :uid LIMIT 1");
+        $stmtAv->execute([':uid' => (int)$loggedUserId]);
+        $avatarChoice = $stmtAv->fetchColumn();
+
+        $loggedHasAvatar = !empty($avatarChoice);
+
+        // Optionnel mais conseillé : on synchronise la session
+        $_SESSION['avatar_has'] = $loggedHasAvatar;
+    } catch (Throwable $e) {
+        $loggedHasAvatar = $_SESSION['avatar_has'] ?? false;
+    }
+}
 
 /* ========= DEMANDES D'AMIS EN ATTENTE ========= */
 $pendingFriendRequests = isset($pendingFriendRequests) ? (int)$pendingFriendRequests : 0;
@@ -142,7 +158,6 @@ if ($allowNonEssential) {
 
     <!-- Navigation -->
     <nav class="main-nav">
-      <!-- ⚠️ plus de class="chip" ici -->
       <a href="/bibliotheque.php">Bibliothèque</a>
       <a href="/actualites.php">Actualités</a>
       <a href="/recommandations.php">Recommandations</a>
@@ -155,12 +170,12 @@ if ($allowNonEssential) {
         <div class="profile-wrapper">
           <a href="/dashboard_user.php" class="profile-badge" aria-label="Accéder à mon espace">
             <?php if ($loggedHasAvatar): ?>
-              <!-- Avatar présent : affichage via script BLOB -->
+              <!-- Avatar choisi : affichage via avatar.php -->
               <img src="/avatar.php?id=<?= (int)$loggedUserId ?>"
                    alt="Mon avatar"
                    class="profile-avatar">
             <?php else: ?>
-              <!-- Pas d’avatar : initiale -->
+              <!-- Pas d’avatar choisi : initiale -->
               <span class="profile-circle">
                 <?= strtoupper(substr($loggedLogin ?? 'U', 0, 1)) ?>
               </span>
@@ -175,7 +190,6 @@ if ($allowNonEssential) {
           <?php endif; ?>
         </div>
       <?php else: ?>
-        <!-- Connexion garde le style .chip -->
         <a href="/connexion.php" class="chip">Connexion</a>
       <?php endif; ?>
 
@@ -185,29 +199,13 @@ if ($allowNonEssential) {
           <?= ($style === 'jour') ? "🌙" : "☀️" ?>
         </button>
       </form>
+
       <!--bouton d'accessibilité-->
       <div class="accessibility-tools" aria-label="Options d’accessibilité">
-  <button type="button"
-          class="font-btn"
-          data-font="small"
-          aria-label="Diminuer la taille du texte">
-    A-
-  </button>
-
-  <button type="button"
-          class="font-btn"
-          data-font="normal"
-          aria-label="Taille de texte normale">
-    A
-  </button>
-
-  <button type="button"
-          class="font-btn"
-          data-font="large"
-          aria-label="Augmenter la taille du texte">
-    A+
-  </button>
-</div>
+        <button type="button" class="font-btn" data-font="small" aria-label="Diminuer la taille du texte">A-</button>
+        <button type="button" class="font-btn" data-font="normal" aria-label="Taille de texte normale">A</button>
+        <button type="button" class="font-btn" data-font="large" aria-label="Augmenter la taille du texte">A+</button>
+      </div>
 
       <!-- Bouton de traduction Google -->
       <button id="custom-translate-btn"

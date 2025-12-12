@@ -28,7 +28,7 @@ try {
         ':bid' => $bookId
     ]);
 } catch (Throwable $e) {
-    // tu peux loguer l'erreur si tu as un système de logs
+    return false; // ou $error = true;
 }
 
 // 2. Récupérer les infos du livre via l'API Google Books
@@ -36,25 +36,21 @@ $title    = null;
 $authors  = null;
 $thumb    = null;
 
-try {
-    if (!empty($GOOGLE_API_KEY)) {
-        $url = "https://www.googleapis.com/books/v1/volumes/" . urlencode($bookId) . "?key=" . urlencode($GOOGLE_API_KEY);
-    } else {
-        $url = "https://www.googleapis.com/books/v1/volumes/" . urlencode($bookId);
-    }
+if (!empty($GOOGLE_API_KEY)) {
+    $url = "https://www.googleapis.com/books/v1/volumes/" . urlencode($bookId) . "?key=" . urlencode($GOOGLE_API_KEY);
+} else {
+    $url = "https://www.googleapis.com/books/v1/volumes/" . urlencode($bookId);
+}
 
-    $response = @file_get_contents($url);
-    if ($response !== false) {
-        $data  = json_decode($response, true);
-        $info  = $data['volumeInfo'] ?? [];
+$response = file_get_contents($url);
+if ($response !== false) {
+    $data  = json_decode($response, true);
+    $info  = $data['volumeInfo'] ?? [];
 
-        $title       = $info['title'] ?? null;
-        $authorsArr  = $info['authors'] ?? [];
-        $authors     = $authorsArr ? implode(', ', $authorsArr) : null;
-        $thumb       = $info['imageLinks']['thumbnail'] ?? null;
-    }
-} catch (Throwable $e) {
-    // silencieux, tu peux aussi loguer
+    $title      = $info['title'] ?? null;
+    $authorsArr = $info['authors'] ?? [];
+    $authors    = $authorsArr ? implode(', ', $authorsArr) : null;
+    $thumb      = $info['imageLinks']['thumbnail'] ?? null;
 }
 
 // 3. insérer dans la table user_library

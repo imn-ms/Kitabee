@@ -91,7 +91,7 @@ class BadgeManager
     }
 
     /**
-     * À utiliser après une action (ajout wishlist, lecture, ami, avatar...).
+     * on lutilise après une action (ajout wishlist, lecture, ami, avatar...).
      * Retourne la liste des badges débloqués pendant cet appel.
      */
     public function checkAllForUser(int $userId): array
@@ -168,7 +168,6 @@ class BadgeManager
 
     private function checkLibraryLast30Days(int $userId, int $required): bool
     {
-        // adapte read_at / added_at selon ta structure
         $stmt = $this->pdo->prepare("
             SELECT COUNT(*)
             FROM user_library
@@ -194,7 +193,7 @@ class BadgeManager
     private function checkAvatar(int $userId): bool
     {
         // À adapter : avatar / avatar_has / autre colonne
-        $stmt = $this->pdo->prepare("SELECT avatar FROM users WHERE id = :uid");
+        $stmt = $this->pdo->prepare("SELECT avatar_choice FROM users WHERE id = :uid");
         $stmt->execute([':uid' => $userId]);
         $avatar = $stmt->fetchColumn();
 

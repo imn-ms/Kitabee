@@ -1,3 +1,4 @@
+<!--NORMALEMENT PAGE A SUPPRIMER-->
 <?php
 /**
  * reset.php – Réinitialisation manuelle de tous les cookies non indispensables

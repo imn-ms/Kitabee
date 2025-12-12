@@ -156,18 +156,4 @@ include __DIR__ . '/include/header.inc.php';
   </div>
 </section>
 
-<!-- script pour faire disparaître le message de succès -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const msg = document.getElementById("success-message");
-  if (msg) {
-    setTimeout(() => {
-      msg.style.transition = "opacity 1s ease";
-      msg.style.opacity = "0";
-      setTimeout(() => msg.remove(), 1000);
-    }, 4000);
-  }
-});
-</script>
-
 <?php include __DIR__ . '/include/footer.inc.php'; ?>
