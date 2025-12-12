@@ -1,6 +1,6 @@
 <?php
 session_start();
-require __DIR__ . '/private/config.php';
+require __DIR__ . '/secret/config.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: connexion.php');
