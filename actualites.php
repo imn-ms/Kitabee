@@ -33,7 +33,7 @@ $articles = $data['response']['results'] ?? [];
           $thumb = $article['fields']['thumbnail'] ?? 'https://via.placeholder.com/300x200?text=Aucune+image';
           $date  = isset($article['webPublicationDate']) ? date('d/m/Y', strtotime($article['webPublicationDate'])) : '';
         ?>
-          <article class="news-card" style="background:#fff; border-radius:12px; box-shadow:0 3px 8px rgba(0,0,0,0.1); overflow:hidden; transition:transform .2s;">
+          <article class="news-card" style="border-radius:12px; box-shadow:0 3px 8px; overflow:hidden; transition:transform .2s;">
             <a href="<?= htmlspecialchars($url) ?>" target="_blank" style="text-decoration:none; color:inherit;">
               <img src="<?= htmlspecialchars($thumb) ?>" alt="Image de l'article" style="width:100%; height:180px; object-fit:cover;">
               <div style="padding:15px;">

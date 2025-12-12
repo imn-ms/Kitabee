@@ -3,22 +3,30 @@
  * livre.php – liste de livres
  */
 header('Content-Type: text/html; charset=UTF-8');
+session_start();
 
 $visited = isset($_COOKIE['visited']);
 if (!$visited) {
   setcookie('visited', '1', 0, '/');
 }
 
+require_once __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/secret/database.php';
+
+$loggedUserId = !empty($_SESSION['user']) ? (int)$_SESSION['user'] : 0;
+$login        = $_SESSION['login'] ?? null;
+
 $pageTitle = "Résultats de recherche - Kitabee";
-include 'include/header.inc.php';
-include __DIR__ . '/secret/config.php';
+include __DIR__ . '/include/header.inc.php';
 
 $query = isset($_GET['q']) ? trim($_GET['q']) : '';
 
 if (!$query) {
   echo "<p>Aucune recherche effectuée.</p>";
+  include __DIR__ . '/include/footer.inc.php';
   exit;
 }
+
 
 $queryEncoded = urlencode($query);
 $url = "https://www.googleapis.com/books/v1/volumes?q={$queryEncoded}&maxResults=12&key={$GOOGLE_API_KEY}";

@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Adresse e-mail invalide.";
     } elseif (!is_strong_password($password)) {
-        $error = "Le mot de passe doit contenir au moins 6 caractères, avec au minimum une majuscule, une minuscule, un chiffre ou un caractère spécial.";
+        $error = "Le mot de passe doit contenir au moins 6 caractères, avec au minimum une majuscule, une minuscule, un chiffre et un caractère spécial.";
     } elseif ($captchaResponse === '') {
         $error = "Veuillez valider le CAPTCHA.";
     } else {
