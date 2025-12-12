@@ -171,7 +171,7 @@ if ($searchTerm !== '') {
 // DEMANDES REÇUES
 $stmt = $pdo->prepare("
     SELECT uf.id, uf.user_id, uf.created_at,
-           u.login, u.avatar
+           u.login, u.avatar_choice
     FROM user_friends uf
     JOIN users u ON u.id = uf.user_id
     WHERE uf.friend_id = :me
