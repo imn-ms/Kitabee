@@ -1,11 +1,19 @@
 <?php
 header('Content-Type: text/html; charset=UTF-8');
+session_start();
+
 $pageTitle = "Détail du livre - Kitabee";
 
-include 'include/header.inc.php';
-include __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/secret/config.php';
+require_once __DIR__ . '/secret/database.php';
+
+$loggedUserId = !empty($_SESSION['user']) ? (int)$_SESSION['user'] : 0;
+$login        = $_SESSION['login'] ?? null;
+
+include __DIR__ . '/include/header.inc.php';
 
 $id = isset($_GET['id']) ? trim($_GET['id']) : '';
+
 
 if (!$id) {
     echo "<p>Aucun livre sélectionné.</p>";
