@@ -51,8 +51,8 @@ Elle permet de rechercher des livres, gérer une bibliothèque personnelle, inte
 ### 🌐 SEO & Divers
 - Référencement (balises, structure, bonnes pratiques)
 - `robots.txt`
-- Carte avec Leaflet (si utilisée)
-- Cron (tâches planifiées si utilisées)
+- Carte avec Leaflet 
+- Cron 
 
 ---
 
@@ -89,7 +89,7 @@ Elle permet de rechercher des livres, gérer une bibliothèque personnelle, inte
 La base de données stocke uniquement les données internes à la plateforme (utilisateurs, relations, clubs…).  
 📌 **Aucune table `book`** : les livres proviennent de l’API Google Books.
 
-### Tables principales (exemple)
+### Tables principales 
 - `users`
 - `book_clubs`
 - `badges`
